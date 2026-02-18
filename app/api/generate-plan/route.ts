@@ -66,7 +66,8 @@ export async function POST(req: NextRequest) {
             new Date(startDate),
             new Date(endDate),
             facultyGroup as any, // Cast because lean() type might be slightly different than Document interface
-            calendar as any
+            calendar as any,
+            subject // Pass subject for filtering
         );
 
         console.log(`[Planner] Calculated Total Slots: ${totalSlots} between ${startDate} and ${endDate}`);
