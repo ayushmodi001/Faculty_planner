@@ -44,7 +44,7 @@ export async function createFacultyGroup(data: CreateFacultyGroupInput) {
             ...validatedData,
             timetable: validatedData.timetable
                 ? new Map(Object.entries(validatedData.timetable))
-                : undefined
+                : new Map()
         };
 
         const newGroup = await FacultyGroup.create(facultyData);
