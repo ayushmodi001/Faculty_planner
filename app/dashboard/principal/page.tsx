@@ -15,41 +15,88 @@ export default function PrincipalDashboard() {
                 </p>
             </div>
 
-            {/* High Level Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
-                <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-lg">
+            {/* Quick Access Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
+
+                {/* User & Faculty Management */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>Administration</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">User & Faculty</CardTitle>
+                            <div className="p-1 bg-primary/10 rounded">
+                                <Users2 className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Create accounts for HODs, Faculty, and Students.
+                        </div>
+                        <Link href="/admin/users">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Manage Users <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                {/* Faculty Groups / Load */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>Academics</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">Faculty Groups</CardTitle>
+                            <div className="p-1 bg-primary/10 rounded">
+                                <Users2 className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Oversee teaching groups and subject allocations.
+                        </div>
+                        <Link href="/admin/faculty">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                View Groups <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                {/* Planner */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>AI Engine</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">Smart Planner</CardTitle>
+                            <div className="p-1 bg-primary/10 rounded">
+                                <BarChart3 className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Generate and review academic plans.
+                        </div>
+                        <Link href="/admin/planner">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Launch Planner <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                {/* Metrics Card (Preserved from original design) */}
+                <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-lg h-full flex flex-col justify-between">
                     <CardHeader>
                         <SwissSubHeading className="text-slate-400">Total Enrollment</SwissSubHeading>
                         <CardTitle className="text-4xl mt-2">12,450</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center text-sm text-green-400 mt-2">
-                            <TrendingUp className="w-4 h-4 mr-2" /> +5.2% from last year
+                            <TrendingUp className="w-4 h-4 mr-2" /> +5.2% YOY
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-primary">
-                    <CardHeader>
-                        <SwissSubHeading>Syllabus Velocity</SwissSubHeading>
-                        <CardTitle className="text-4xl mt-2">87%</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                            Overall average syllabus completion across all departments compared to expected timeline.
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-green-500">
-                    <CardHeader>
-                        <SwissSubHeading>Faculty Engagement</SwissSubHeading>
-                        <CardTitle className="text-4xl mt-2">98.5%</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                            Daily active faculty leveraging the digital planning tools.
-                        </p>
                     </CardContent>
                 </Card>
             </div>
