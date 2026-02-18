@@ -13,6 +13,8 @@ interface ISlot {
     startTime: string;
     endTime: string;
     room?: string;
+    subject?: string;
+    faculty?: string;
     type: 'Lecture' | 'Lab' | 'Break';
 }
 
