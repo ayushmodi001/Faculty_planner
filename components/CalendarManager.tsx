@@ -87,7 +87,19 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
         <div className="min-h-screen bg-slate-50/50">
             <Toaster position="top-center" richColors />
 
-            <main className="max-w-6xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <main className="max-w-6xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+                {/* Actions Bar (Restored) */}
+                <div className="lg:col-span-12 flex justify-end">
+                    <Button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md"
+                    >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
+                        {isSaving ? 'Saving...' : 'Save Configuration'}
+                    </Button>
+                </div>
 
                 {/* Calendar Section */}
                 <div className="lg:col-span-8">
