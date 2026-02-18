@@ -86,26 +86,33 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
 
             <main className="max-w-7xl mx-auto p-8 flex flex-col items-center">
 
+                <div className="bg-card border rounded-xl shadow-sm p-4 mb-8">
+                    <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={(d) => {
+                            if (d) {
+                                setDate(d);
+                                setIsPopoverOpen(true);
+                            }
+                        }}
+                        className="rounded-md border shadow mx-auto"
+                        numberOfMonths={2}
+                        defaultMonth={new Date(year, 0)}
+                        modifiers={{
+                            holiday: holidayDates
+                        }}
+                        modifiersClassNames={{
+                            holiday: "bg-red-100 text-red-600 font-bold hover:bg-red-200 hover:text-red-700"
+                        }}
+                    />
+                </div>
+
                 <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                     <PopoverTrigger asChild>
-                        <div className="bg-card border rounded-xl shadow-sm p-4">
-                            <Calendar
-                                mode="single"
-                                selected={date}
-                                onSelect={(d) => { setDate(d); setIsPopoverOpen(true); }}
-                                className="rounded-md border shadow"
-                                numberOfMonths={2}
-                                defaultMonth={new Date(year, 0)}
-                                modifiers={{
-                                    holiday: holidayDates
-                                }}
-                                modifiersClassNames={{
-                                    holiday: "bg-red-100 text-red-600 font-bold hover:bg-red-200 hover:text-red-700"
-                                }}
-                            />
-                        </div>
+                        <span className="hidden"></span>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="start">
+                    <PopoverContent className="w-80 p-0" align="center" side="bottom">
                         <div className="p-4 space-y-4">
                             <div className="space-y-2">
                                 <h4 className="font-medium leading-none">
