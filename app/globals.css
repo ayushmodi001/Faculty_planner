@@ -24,51 +24,52 @@
 }
 
 :root {
-  --background: hsl(222 47% 11%);
-  --foreground: hsl(210 40% 98%);
+  /* Swiss International Style Palette */
+  /* Clean White Background, stark Black text, Vibrant Primary Blue */
 
-  --card: hsl(222 47% 11%);
-  --card-foreground: hsl(210 40% 98%);
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(0 0% 9%);
+  /* #171717 */
 
-  --popover: hsl(222 47% 11%);
-  --popover-foreground: hsl(210 40% 98%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 9%);
 
-  --primary: hsl(217 91% 60%);
-  --primary-foreground: hsl(222 47% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(0 0% 9%);
 
-  --secondary: hsl(217 32% 17%);
-  --secondary-foreground: hsl(210 40% 98%);
+  --primary: hsl(220 100% 50%);
+  /* Reference Blue #0055FF */
+  --primary-foreground: hsl(0 0% 100%);
 
-  --muted: hsl(217 32% 17%);
-  --muted-foreground: hsl(215 20% 65%);
+  --secondary: hsl(220 14% 96%);
+  /* Very light gray/blue for backgrounds */
+  --secondary-foreground: hsl(220 100% 50%);
 
-  --accent: hsl(217 32% 17%);
-  --accent-foreground: hsl(210 40% 98%);
+  --muted: hsl(220 14% 96%);
+  --muted-foreground: hsl(220 8% 46%);
 
-  --destructive: hsl(0 62% 30%);
-  --destructive-foreground: hsl(210 40% 98%);
+  --accent: hsl(220 14% 96%);
+  --accent-foreground: hsl(220 100% 50%);
 
-  --border: hsl(217 32% 17%);
-  --input: hsl(217 32% 17%);
-  --ring: hsl(224 76% 48%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 98%);
 
-  --radius: 0.5rem;
+  --border: hsl(220 13% 91%);
+  /* Subtle borders */
+  --input: hsl(220 13% 91%);
+  --ring: hsl(220 100% 50%);
+
+  --radius: 0.25rem;
+  /* 4px - tighter radii for Swiss feel */
 }
 
 body {
-  @apply bg-background text-foreground antialiased;
-  background-image:
-    radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
-    radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
-    radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
-  background-attachment: fixed;
-  min-height: 100vh;
+  @apply bg-background text-foreground antialiased font-sans;
+  /* Subtle grid pattern for "Utility" feel */
+  background-image: radial-gradient(hsl(220 13% 91%) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-@utility glass {
-  @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
-}
-
-@utility glass-card {
-  @apply bg-card/50 backdrop-blur-md border border-border shadow-lg;
+@utility container-grid {
+  @apply grid grid-cols-12 gap-6;
 }
