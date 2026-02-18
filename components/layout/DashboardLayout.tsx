@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button'; // Usage of shadcn button
+import { Button } from '@/components/ui/button';
+import LogoutButton from './LogoutButton';
 import { Home, LogOut } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 
@@ -28,21 +29,12 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Role Switcher for Demo Purposes */}
-                        <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground mr-4 border-r pr-4">
-                            <Link href="/dashboard/principal" className={`px-2 py-1 rounded hover:text-foreground ${role === 'Principal' ? 'text-foreground font-semibold bg-muted' : ''}`}>Principal</Link>
-                            <Link href="/dashboard/hod" className={`px-2 py-1 rounded hover:text-foreground ${role === 'HOD' ? 'text-foreground font-semibold bg-muted' : ''}`}>HOD</Link>
-                            <Link href="/dashboard/faculty" className={`px-2 py-1 rounded hover:text-foreground ${role === 'Faculty' ? 'text-foreground font-semibold bg-muted' : ''}`}>Faculty</Link>
-                            <Link href="/dashboard/student" className={`px-2 py-1 rounded hover:text-foreground ${role === 'Student' ? 'text-foreground font-semibold bg-muted' : ''}`}>Student</Link>
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full border text-xs font-medium text-muted-foreground">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            {role || 'User'}
                         </div>
 
-                        <Button variant="ghost" size="sm" onClick={async () => {
-                            await fetch('/api/auth/logout', { method: 'POST' });
-                            window.location.href = '/login';
-                        }}>
-                            <LogOut className="w-4 h-4 mr-2" />
-                            Exit
-                        </Button>
+                        <LogoutButton />
                     </div>
                 </div>
             </nav>
