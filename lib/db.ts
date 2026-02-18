@@ -30,13 +30,16 @@ if (!cached) {
 }
 
 async function dbConnect() {
-  if (cached.conn) {
+  if (cached.conn && cached.conn.connection.readyState === 1) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
-      bufferCommands: false,
+      bufferCommands: false, // Disable buffering to fail fast if disconnected. 
+      // Add timeouts to prevent hanging checks (user saw 30s timeouts)
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
