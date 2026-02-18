@@ -87,26 +87,6 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
         <div className="min-h-screen bg-slate-50/50">
             <Toaster position="top-center" richColors />
 
-            {/* Top Bar */}
-            <div className="sticky top-0 z-30 w-full border-b bg-white/80 backdrop-blur-md px-8 py-4 flex items-center justify-between shadow-sm">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                        Academic Calendar {year}
-                    </h1>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                        Global Configuration
-                    </p>
-                </div>
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200"
-                >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-            </div>
-
             <main className="max-w-6xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
 
                 {/* Calendar Section */}
