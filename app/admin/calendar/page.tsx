@@ -11,17 +11,37 @@ export const dynamic = 'force-dynamic'; // Ensure we always fetch fresh data
 async function getCalendarData(year: number) {
     await dbConnect();
 
-    const calendar = await AcademicCalendar.findOne({ year }).lean();
-
-    if (calendar && calendar.holidays) {
-        // Serialize dates to strings for client component
-        return calendar.holidays.map((h: any) => ({
-            date: h.date.toISOString().split('T')[0], // YYYY-MM-DD
-            reason: h.reason
-        }));
+    // 1. Check Database (User Overrides/Saved Configuration)
+    try {
+        const calendar = await AcademicCalendar.findOne({ year }).lean();
+        if (calendar && calendar.holidays && calendar.holidays.length > 0) {
+            return calendar.holidays.map((h: any) => ({
+                date: h.date.toISOString().split('T')[0],
+                reason: h.reason
+            }));
+        }
+    } catch (e) {
+        console.warn("Database fetch failed, trying API...");
     }
 
-    // Fallback to static data
+    // 2. Fetch from Nager.Date API (Real-time Data)
+    try {
+        const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/IN`, {
+            next: { revalidate: 86400 } // Cache for 24 hours
+        });
+
+        if (response.ok) {
+            const apiHolidays = await response.json();
+            return apiHolidays.map((h: any) => ({
+                date: h.date,
+                reason: h.name // e.g. "Republic Day"
+            }));
+        }
+    } catch (error) {
+        console.error("Failed to fetch holidays from API:", error);
+    }
+
+    // 3. Fallback to Static Data
     return INDIAN_HOLIDAYS_2026;
 }
 
