@@ -3,31 +3,9 @@ import dbConnect from '@/lib/db';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import FacultyGroup from '@/models/FacultyGroup';
-import AcademicCalendar from '@/models/AcademicCalendar';
-import Plan from '@/models/Plan';
-import { calculateAvailableSlots } from '@/utils/availability';
-import { AIPlanResponseSchema } from '@/models/AIOutputSchema';
+import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
 
-// Initialize OpenRouter (OpenAI compatible SDK)
-// Moved inside handler or lazily initialized to prevent build-time errors if Key is missing
-const getOpenAI = () => {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-        throw new Error("OPENROUTER_API_KEY is not defined in environment variables.");
-    }
-    return new OpenAI({
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey: apiKey,
-    });
-};
-
-const InputSchema = z.object({
-    facultyGroupId: z.string(),
-    startDate: z.string(), // YYYY-MM-DD
-    endDate: z.string(),   // YYYY-MM-DD
-    syllabusText: z.string().min(50),
-    subject: z.string(),
-});
+// ... imports
 
 export async function POST(req: NextRequest) {
     try {
@@ -36,14 +14,26 @@ export async function POST(req: NextRequest) {
 
         // 1. Validate Input
         const { facultyGroupId, startDate, endDate, syllabusText, subject } = InputSchema.parse(body);
+        const year = new Date(startDate).getFullYear();
 
         // 2. Fetch Context Data
-        // Use .lean() to get Plain Old JavaScript Objects (POJO) for easier handling
         const facultyGroup = await FacultyGroup.findById(facultyGroupId).lean();
-        if (!facultyGroup) return NextResponse.json({ error: 'Faculty Group not found' }, { status: 404 });
+        if (!facultyGroup) {
+            console.log(`[Planner Error] FacultyGroup not found: ${facultyGroupId}`);
+            return NextResponse.json({ error: 'Faculty Group not found' }, { status: 404 });
+        }
 
-        const calendar = await AcademicCalendar.findOne({ year: new Date(startDate).getFullYear() }).lean();
-        if (!calendar) return NextResponse.json({ error: 'Academic Calendar not found for year ' + new Date(startDate).getFullYear() }, { status: 404 });
+        let calendar = await AcademicCalendar.findOne({ year }).lean();
+
+        // FAIL-SAFE: If no calendar in DB, use static defaults
+        if (!calendar) {
+            console.warn(`[Planner] Calendar not found for ${year}. Using static defaults.`);
+            calendar = {
+                year: year,
+                holidays: INDIAN_HOLIDAYS_2026.map(h => ({ date: h.date, reason: h.reason })),
+                working_days_override: []
+            };
+        }
 
         // Debug: Check timetable structure
         console.log(`[Planner] Faculty Group: ${facultyGroup.name}, Timetable keys: ${Object.keys(facultyGroup.timetable || {}).join(', ')}`);
