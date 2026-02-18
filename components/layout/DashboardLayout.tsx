@@ -34,11 +34,12 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
                             <Link href="/dashboard/student" className={`px-2 py-1 rounded hover:text-foreground ${role === 'Student' ? 'text-foreground font-semibold bg-muted' : ''}`}>Student</Link>
                         </div>
 
-                        <Button variant="ghost" size="sm" asChild>
-                            <Link href="/">
-                                <LogOut className="w-4 h-4 mr-2" />
-                                Exit
-                            </Link>
+                        <Button variant="ghost" size="sm" onClick={async () => {
+                            await fetch('/api/auth/logout', { method: 'POST' });
+                            window.location.href = '/login';
+                        }}>
+                            <LogOut className="w-4 h-4 mr-2" />
+                            Exit
                         </Button>
                     </div>
                 </div>
