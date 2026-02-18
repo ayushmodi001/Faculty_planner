@@ -38,23 +38,31 @@ export async function POST(req: NextRequest) {
         const { facultyGroupId, startDate, endDate, syllabusText, subject } = InputSchema.parse(body);
 
         // 2. Fetch Context Data
-        const facultyGroup = await FacultyGroup.findById(facultyGroupId);
+        // Use .lean() to get Plain Old JavaScript Objects (POJO) for easier handling
+        const facultyGroup = await FacultyGroup.findById(facultyGroupId).lean();
         if (!facultyGroup) return NextResponse.json({ error: 'Faculty Group not found' }, { status: 404 });
 
-        const calendar = await AcademicCalendar.findOne({ year: new Date(startDate).getFullYear() });
-        if (!calendar) return NextResponse.json({ error: 'Academic Calendar not found for this year' }, { status: 404 });
+        const calendar = await AcademicCalendar.findOne({ year: new Date(startDate).getFullYear() }).lean();
+        if (!calendar) return NextResponse.json({ error: 'Academic Calendar not found for year ' + new Date(startDate).getFullYear() }, { status: 404 });
+
+        // Debug: Check timetable structure
+        console.log(`[Planner] Faculty Group: ${facultyGroup.name}, Timetable keys: ${Object.keys(facultyGroup.timetable || {}).join(', ')}`);
 
         // 3. Deterministic Availability Calculation
         // This tells us exactly how many slots we have (The "Budget")
         const { totalSlots, schedule } = calculateAvailableSlots(
             new Date(startDate),
             new Date(endDate),
-            facultyGroup,
-            calendar
+            facultyGroup as any, // Cast because lean() type might be slightly different than Document interface
+            calendar as any
         );
 
+        console.log(`[Planner] Calculated Total Slots: ${totalSlots} between ${startDate} and ${endDate}`);
+
         if (totalSlots === 0) {
-            return NextResponse.json({ error: 'No available slots found in this date range.' }, { status: 400 });
+            return NextResponse.json({
+                error: `No available slots found. Check if the Faculty Group has a timetable for the requested days (${startDate} to ${endDate}).`
+            }, { status: 400 });
         }
 
         // 4. Construct Prompt for AI

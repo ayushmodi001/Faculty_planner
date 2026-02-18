@@ -34,10 +34,12 @@ export function calculateAvailableSlots(
     );
 
     // Mongoose Map to standard JS Object/Map handling
-    // facultyGroup.timetable is likely a Map from Mongoose
-    const timetable = facultyGroup.timetable instanceof Map
-        ? Object.fromEntries(facultyGroup.timetable)
-        : facultyGroup.timetable;
+    // We expect facultyGroup to be LEAN (POJO) here, so timetable is just an object.
+    // But for safety, we check if it is a Map (in case passed from a non-lean document).
+    let timetable: any = facultyGroup.timetable;
+    if (timetable instanceof Map) {
+        timetable = Object.fromEntries(timetable);
+    }
 
     for (const date of allDates) {
         const dateStr = date.toISOString().split('T')[0];
