@@ -9,10 +9,17 @@ import { calculateAvailableSlots } from '@/utils/availability';
 import { AIPlanResponseSchema } from '@/models/AIOutputSchema';
 
 // Initialize OpenRouter (OpenAI compatible SDK)
-const openai = new OpenAI({
-    baseURL: 'https://openrouter.ai/api/v1',
-    apiKey: process.env.OPENROUTER_API_KEY,
-});
+// Moved inside handler or lazily initialized to prevent build-time errors if Key is missing
+const getOpenAI = () => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+        throw new Error("OPENROUTER_API_KEY is not defined in environment variables.");
+    }
+    return new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: apiKey,
+    });
+};
 
 const InputSchema = z.object({
     facultyGroupId: z.string(),
@@ -79,6 +86,9 @@ export async function POST(req: NextRequest) {
     `;
 
         // 5. Call LLM
+        console.log(`[Planner] Calling LLM for ${subject}...`);
+        const openai = getOpenAI();
+
         const completion = await openai.chat.completions.create({
             model: "mistralai/mistral-7b-instruct:free", // Low cost/free model for testing
             messages: [
@@ -87,6 +97,7 @@ export async function POST(req: NextRequest) {
             ],
             response_format: { type: "json_object" }
         });
+        console.log(`[Planner] LLM responded. Token usage: ${completion.usage?.total_tokens}`);
 
         const content = completion.choices[0].message.content;
         if (!content) throw new Error("Empty response from AI");

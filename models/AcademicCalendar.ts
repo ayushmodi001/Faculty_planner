@@ -26,6 +26,6 @@ const AcademicCalendarSchema = new Schema<IAcademicCalendar>(
 );
 
 // Index for faster querying by year (already unique, but explicit index is good)
-AcademicCalendarSchema.index({ year: 1 });
+// AcademicCalendarSchema.index({ year: 1 }); // Removed to prevent "Duplicate schema index" warning
 
 export default models.AcademicCalendar || model<IAcademicCalendar>('AcademicCalendar', AcademicCalendarSchema);
