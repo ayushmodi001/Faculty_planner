@@ -3,9 +3,31 @@ import dbConnect from '@/lib/db';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import FacultyGroup from '@/models/FacultyGroup';
+import AcademicCalendar from '@/models/AcademicCalendar';
+import Plan from '@/models/Plan';
+import { calculateAvailableSlots } from '@/utils/availability';
+import { AIPlanResponseSchema } from '@/models/AIOutputSchema';
 import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
 
-// ... imports
+// Initialize OpenRouter (OpenAI compatible SDK)
+const getOpenAI = () => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+        throw new Error("OPENROUTER_API_KEY is not defined in environment variables.");
+    }
+    return new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: apiKey,
+    });
+};
+
+const InputSchema = z.object({
+    facultyGroupId: z.string(),
+    startDate: z.string(), // YYYY-MM-DD
+    endDate: z.string(),   // YYYY-MM-DD
+    syllabusText: z.string().min(50),
+    subject: z.string(),
+});
 
 export async function POST(req: NextRequest) {
     try {
