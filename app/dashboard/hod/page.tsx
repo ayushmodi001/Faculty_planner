@@ -62,6 +62,27 @@ export default function HODDashboard() {
                     </CardContent>
                 </Card>
 
+                {/* Timetable Module */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>Scheduling</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">Semester Timetable</CardTitle>
+                            <CalendarRange className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Define weekly master schedules for all faculty groups/sections.
+                        </div>
+                        <Link href="/admin/timetable">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Manage Schedule <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
                 {/* Smart Planner Module */}
                 <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
                     <CardHeader className="pb-2">
