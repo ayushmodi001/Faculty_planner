@@ -54,7 +54,7 @@ export async function login(user: any) {
     });
 
     // Set HTTP-only cookie
-    cookies().set('session', token, {
+    (await cookies()).set('session', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -66,11 +66,11 @@ export async function login(user: any) {
 }
 
 export async function logout() {
-    cookies().delete('session');
+    (await cookies()).delete('session');
 }
 
 export async function getSession() {
-    const session = cookies().get('session')?.value;
+    const session = (await cookies()).get('session')?.value;
     if (!session) return null;
     return await verifyJWT(session);
 }
