@@ -2,25 +2,30 @@ import React from 'react';
 import CreateFacultyGroupForm from '@/components/CreateFacultyGroupForm';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { NeoButton } from '@/components/ui/NeoBrutalism';
+import { Button } from '@/components/ui/button';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 
 export default function NewFacultyGroupPage() {
     return (
-        <div className="min-h-screen bg-dots-pattern bg-zinc-100 p-8 flex flex-col items-center justify-center">
-            <div className="w-full max-w-2xl mb-8 flex items-center">
+        <DashboardLayout role="HOD">
+            <div className="max-w-3xl mx-auto mb-8 animate-in slide-in-from-bottom-5 duration-500">
                 <Link href="/admin/faculty">
-                    <NeoButton variant="secondary" className="flex items-center gap-2">
-                        <ArrowLeft className="w-5 h-5" /> Back to List
-                    </NeoButton>
+                    <Button variant="ghost" className="pl-0 gap-2 mb-4 hover:bg-transparent hover:text-primary">
+                        <ArrowLeft className="w-4 h-4" /> Back to Faculty List
+                    </Button>
                 </Link>
+
+                <SwissSubHeading className="text-primary mb-1">Configuration</SwissSubHeading>
+                <SwissHeading>Create New Group</SwissHeading>
+                <p className="text-muted-foreground mt-2 text-sm">
+                    Define a new cohort and assign subject responsibilities.
+                </p>
             </div>
 
-            <div className="w-full max-w-2xl relative">
-                <div className="absolute -top-4 -left-4 w-full h-full bg-black border-2 border-black z-0"></div>
-                <div className="relative z-10">
-                    <CreateFacultyGroupForm />
-                </div>
+            <div className="max-w-3xl mx-auto animate-in slide-in-from-bottom-10 duration-700 delay-100">
+                <CreateFacultyGroupForm />
             </div>
-        </div>
+        </DashboardLayout>
     );
 }
