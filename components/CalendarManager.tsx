@@ -17,6 +17,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/SwissUI"
 
 interface Props {
     initialHolidays: { date: string; reason: string }[];
@@ -103,35 +104,32 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
 
                 {/* Calendar Section */}
                 <div className="lg:col-span-8">
-                    <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                        <div className="p-6">
+                    <Card className="h-full">
+                        <CardHeader>
+                            <CardTitle>Calendar View</CardTitle>
+                            <CardDescription>Select dates to mark them as holidays.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex justify-center p-6">
                             <Calendar
                                 mode="single"
                                 selected={date}
                                 onSelect={handleDateSelect}
-                                className="w-full pointer-events-auto"
+                                className="rounded-md border shadow-sm"
                                 numberOfMonths={2}
                                 defaultMonth={new Date(year, 0)}
                                 modifiers={{
                                     holiday: holidays.map(h => h.date)
                                 }}
-                                modifiersClassNames={{
-                                    holiday: "bg-red-50 text-red-600 font-bold border-2 border-red-100 hover:bg-red-100 hover:border-red-200 rounded-md"
-                                }}
-                                classNames={{
-                                    month: "space-y-4 w-full",
-                                    caption: "flex justify-center pt-1 relative items-center mb-4",
-                                    caption_label: "text-lg font-bold text-slate-700",
-                                    head_cell: "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem] uppercase tracking-wider",
-                                    cell: "h-12 w-12 text-center text-sm p-0 flex items-center justify-center relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                                    day: "h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-slate-100 rounded-lg transition-all duration-200",
-                                    day_selected: "bg-indigo-600 text-white hover:bg-indigo-600 focus:bg-indigo-600",
-                                    day_today: "bg-slate-100 text-slate-900 font-bold ring-2 ring-indigo-200",
+                                modifiersStyles={{
+                                    holiday: {
+                                        color: 'var(--destructive)',
+                                        fontWeight: 'bold',
+                                        backgroundColor: 'hsl(var(--destructive) / 0.1)'
+                                    }
                                 }}
                             />
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Sidebar / List Section */}
