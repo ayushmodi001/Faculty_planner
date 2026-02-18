@@ -5,19 +5,21 @@ import { IAcademicCalendar } from '@/models/AcademicCalendar';
 export interface DaySchedule {
     date: Date;
     dayOfWeek: string;
-    slots: { startTime: string; endTime: string; room?: string }[];
+    slots: { startTime: string; endTime: string; room?: string; subject?: string; faculty?: string }[];
     isOverride: boolean;
 }
 
 /**
  * Deterministically calculates all available teaching slots between two dates.
  * Filters out holidays and Sundays (unless overridden).
+ * Optional: Filters slots by Subject Name if provided.
  */
 export function calculateAvailableSlots(
     startDate: Date,
     endDate: Date,
     facultyGroup: IFacultyGroup,
-    calendar: IAcademicCalendar
+    calendar: IAcademicCalendar,
+    subjectFilter?: string
 ): { totalSlots: number; schedule: DaySchedule[] } {
 
     const allDates = eachDayOfInterval({ start: startDate, end: endDate });
@@ -35,14 +37,16 @@ export function calculateAvailableSlots(
 
     // Mongoose Map to standard JS Object/Map handling
     // We expect facultyGroup to be LEAN (POJO) here, so timetable is just an object.
-    // But for safety, we check if it is a Map (in case passed from a non-lean document).
     let timetable: any = facultyGroup.timetable;
     if (timetable instanceof Map) {
         timetable = Object.fromEntries(timetable);
     }
 
+    const normalize = (s: string) => s ? s.trim().toLowerCase() : '';
+    const targetSubject = normalize(subjectFilter || '');
+
     for (const date of allDates) {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = format(date, 'yyyy-MM-dd');
         const dayOfWeek = format(date, 'EEEE'); // "Monday", "Tuesday"...
 
         // 1. Check if Holiday
@@ -51,8 +55,6 @@ export function calculateAvailableSlots(
         }
 
         // 2. Check availability
-        // If it's an override date, we assume it works regardless of being Sunday
-        // Otherwise, we skip Sundays by default (optional, but standard for academics)
         const isOverride = overrides.has(dateStr);
 
         // Optional: Skip Sundays if not overridden
@@ -65,13 +67,35 @@ export function calculateAvailableSlots(
         const dailySlots = (timetable as any)[dayOfWeek];
 
         if (dailySlots && Array.isArray(dailySlots) && dailySlots.length > 0) {
-            schedule.push({
-                date,
-                dayOfWeek,
-                slots: dailySlots,
-                isOverride
-            });
-            totalSlots += dailySlots.length;
+            let filteredSlots = dailySlots;
+
+            // Filter by Subject if provided
+            if (targetSubject) {
+                filteredSlots = dailySlots.filter((slot: any) => {
+                    // Match Subject OR Faculty Code (in case user passed faculty code as subject filter, though UI says Subject)
+                    // Let's stick to Subject matching for now.
+                    // Access subject from slot. Assuming it exists now.
+                    // Also check for 'subject' field in slot object
+                    const slotSubject = normalize(slot.subject);
+                    // Partial match? "Software Testing" vs "STQA"
+                    // If exact match fails, maybe include?
+                    // User data had "7CSE13:STQA:..."
+                    // parsed subject is "STQA". Input subject might be "Software Testing".
+                    // This mismatch is tricky. 
+                    // For now, simple case-insensitive substring match?
+                    return slotSubject.includes(targetSubject) || targetSubject.includes(slotSubject);
+                });
+            }
+
+            if (filteredSlots.length > 0) {
+                schedule.push({
+                    date,
+                    dayOfWeek,
+                    slots: filteredSlots,
+                    isOverride
+                });
+                totalSlots += filteredSlots.length;
+            }
         }
     }
 
