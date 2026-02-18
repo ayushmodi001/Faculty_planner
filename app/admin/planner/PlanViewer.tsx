@@ -50,7 +50,7 @@ export default function PlanViewer({ plan }: PlanViewerProps) {
         doc.setFillColor(220, 220, 220);
         doc.rect(14, 60, 60, 8, 'F'); // Header background
         doc.rect(14, 60, 60, 8, 'S'); // Border
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text("Teaching Scheme", 16, 65);
         doc.restoreGraphicsState();
 
@@ -71,7 +71,7 @@ export default function PlanViewer({ plan }: PlanViewerProps) {
         doc.setFillColor(200, 200, 200);
         doc.rect(14, contentStartY, 182, 8, 'F');
         doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text("Course Content & Schedule", 16, contentStartY + 6);
         doc.restoreGraphicsState();
 
