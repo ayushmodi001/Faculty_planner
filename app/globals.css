@@ -24,52 +24,64 @@
 }
 
 :root {
-  /* Swiss International Style Palette */
-  /* Clean White Background, stark Black text, Vibrant Primary Blue */
+  /* Stitch Project Theme: 'UAPS System' */
+  /* Swiss International Style with #2b4bee Primary */
 
   --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 9%);
-  /* #171717 */
+  --foreground: hsl(222 47% 11%);
+  /* Darker, richer text */
 
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 9%);
+  --card-foreground: hsl(222 47% 11%);
 
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 9%);
+  --popover-foreground: hsl(222 47% 11%);
 
-  --primary: hsl(220 100% 50%);
-  /* Reference Blue #0055FF */
-  --primary-foreground: hsl(0 0% 100%);
+  /* #2b4bee -> HSL approx 230, 85%, 55% */
+  --primary: hsl(230 85% 55%);
+  --primary-foreground: hsl(210 40% 98%);
 
-  --secondary: hsl(220 14% 96%);
-  /* Very light gray/blue for backgrounds */
-  --secondary-foreground: hsl(220 100% 50%);
+  --secondary: hsl(210 40% 96.1%);
+  --secondary-foreground: hsl(222 47% 11.2%);
 
-  --muted: hsl(220 14% 96%);
-  --muted-foreground: hsl(220 8% 46%);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215 16% 47%);
 
-  --accent: hsl(220 14% 96%);
-  --accent-foreground: hsl(220 100% 50%);
+  --accent: hsl(210 40% 96.1%);
+  --accent-foreground: hsl(222 47% 11.2%);
 
-  --destructive: hsl(0 84% 60%);
-  --destructive-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(210 40% 98%);
 
-  --border: hsl(220 13% 91%);
-  /* Subtle borders */
-  --input: hsl(220 13% 91%);
-  --ring: hsl(220 100% 50%);
+  --border: hsl(214 32% 91%);
+  --input: hsl(214 32% 91%);
+  --ring: hsl(230 85% 55%);
+  /* Matches Primary */
 
-  --radius: 0.25rem;
-  /* 4px - tighter radii for Swiss feel */
+  --radius: 0.5rem;
+  /* Round 8px as per Stitch Theme */
 }
 
 body {
   @apply bg-background text-foreground antialiased font-sans;
-  /* Subtle grid pattern for "Utility" feel */
-  background-image: radial-gradient(hsl(220 13% 91%) 1px, transparent 1px);
-  background-size: 24px 24px;
+  /* Subtle dot pattern for a technical, Swiss feel */
+  background-image: radial-gradient(hsl(214 32% 91%) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 @utility container-grid {
   @apply grid grid-cols-12 gap-6;
+}
+
+/* Swiss Style Typography Utilities */
+@utility text-swiss-xl {
+  @apply text-4xl font-bold tracking-tight text-foreground;
+}
+
+@utility text-swiss-lg {
+  @apply text-2xl font-bold tracking-tight text-foreground;
+}
+
+@utility text-swiss-label {
+  @apply text-xs font-bold uppercase tracking-widest text-muted-foreground;
 }
