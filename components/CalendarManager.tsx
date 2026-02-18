@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import Calendar from './Calendar';
-import { Layers, CheckCircle, Loader2 } from 'lucide-react';
+import { Layers, Loader2, Check } from 'lucide-react';
 import { saveCalendar } from '@/app/actions/calendar';
+import { Button, SwissHeading, SwissSubHeading, Card, CardContent } from '@/components/ui/SwissUI';
+import { Toaster, toast } from 'sonner';
 
 interface Props {
     initialHolidays: { date: string; reason: string }[];
@@ -42,40 +44,62 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
             reason: h.reason
         }));
 
-        await saveCalendar(year, payload);
-        setIsSaving(false);
-        alert('Calendar saved successfully!');
+        try {
+            await saveCalendar(year, payload);
+            toast.success('Academic Calendar Saved', {
+                description: 'Holiday configuration has been updated successfully.',
+                duration: 3000,
+            });
+        } catch (error) {
+            toast.error('Save Failed', { description: 'Could not update calendar.' });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
-        <div className="min-h-screen p-8 text-white">
-            <header className="mb-12 flex items-center justify-between max-w-5xl mx-auto">
-                <div>
-                    <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                        Academic Calendar {year}
-                    </h1>
-                    <p className="text-gray-400 mt-2">Manage university holidays and working days.</p>
-                </div>
-                <div className="flex gap-4">
-                    <button
+        <div className="min-h-screen bg-background">
+            <Toaster position="top-right" />
+
+            <div className="border-b bg-card">
+                <div className="max-w-7xl mx-auto p-6 md:px-8 flex items-center justify-between">
+                    <div>
+                        <SwissSubHeading className="text-primary mb-1">Configuration</SwissSubHeading>
+                        <SwissHeading className="text-3xl">Academic Calendar {year}</SwissHeading>
+                        <p className="text-muted-foreground mt-1 text-sm">
+                            Define holidays and non-instructional days for the semester.
+                        </p>
+                    </div>
+                    <Button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 rounded-full font-medium transition-all shadow-lg hover:shadow-blue-500/25"
+                        className="gap-2 min-w-[140px]"
                     >
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+                        {isSaving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Layers className="w-4 h-4" />
+                        )}
                         {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
+                    </Button>
                 </div>
-            </header>
+            </div>
 
-            <main>
+            <main className="max-w-7xl mx-auto p-6 md:p-8">
                 <Calendar
                     holidays={holidays}
                     onDateClick={toggleHoliday}
+                    year={year}
                 />
 
-                <div className="mt-8 max-w-4xl mx-auto text-sm text-gray-500 text-center">
-                    <p>Click on any date to toggle it as a holiday.</p>
+                <div className="mt-8 flex justify-center">
+                    <Card className="inline-flex bg-muted/30 border-dashed">
+                        <CardContent className="py-3 px-6 text-sm text-muted-foreground flex items-center gap-2">
+                            <div className="w-3 h-3 bg-red-100 border border-red-200 rounded-sm"></div> Indicates Holiday
+                            <span className="mx-2">•</span>
+                            Click on any date to toggle status
+                        </CardContent>
+                    </Card>
                 </div>
             </main>
         </div>
