@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
-import { ArrowRight, LayoutDashboard, CalendarRange, Users, BookOpen, Bell } from 'lucide-react';
+import { ArrowRight, LayoutDashboard, CalendarRange, Users, BookOpen, Bell, Wand2 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 
 export default function HODDashboard() {
@@ -34,6 +34,29 @@ export default function HODDashboard() {
                         <Link href="/admin/faculty">
                             <Button variant="outline" className="w-full justify-between mt-auto">
                                 Access Portal <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                {/* Smart Planner Module */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>AI Engine</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">Smart Planner</CardTitle>
+                            <div className="p-1 bg-primary/10 rounded">
+                                <Wand2 className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Generate optimized lesson plans from raw syllabus text.
+                        </div>
+                        <Link href="/admin/planner">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Launch Planner <ArrowRight className="w-4 h-4 ml-2" />
                             </Button>
                         </Link>
                     </CardContent>
