@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createFacultyGroup } from '@/app/actions/faculty';
-import { NeoCard, NeoButton } from '@/components/ui/NeoBrutalism';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import { Loader2, X, Plus } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function CreateFacultyGroupForm() {
     const router = useRouter();
@@ -59,82 +60,100 @@ export default function CreateFacultyGroupForm() {
     };
 
     return (
-        <NeoCard className="max-w-xl mx-auto bg-white p-8">
-            <h2 className="text-3xl font-black mb-6 border-b-4 border-black pb-2">Create New Faculty Group</h2>
+        <div className="max-w-2xl mx-auto py-12">
+            <div className="mb-8 text-center space-y-2">
+                <SwissSubHeading className="text-primary tracking-widest uppercase">Configuration</SwissSubHeading>
+                <SwissHeading className="text-3xl font-bold tracking-tight text-foreground">Create New Faculty Group</SwissHeading>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                    Define a new academic group and assign the subjects they are responsible for teaching this semester.
+                </p>
+            </div>
 
-            {error && (
-                <div className="bg-red-100 border-2 border-red-500 text-red-700 p-3 mb-6 font-bold shadow-[4px_4px_0px_0px_rgba(239,68,68,1)]">
-                    ERROR: {error}
-                </div>
-            )}
+            <Card className="border shadow-lg">
+                <CardContent className="pt-6">
+                    {error && (
+                        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 mb-6 rounded-md flex items-center justify-between">
+                            <span>{error}</span>
+                            <X className="w-4 h-4 cursor-pointer hover:text-red-700" onClick={() => setError(null)} />
+                        </div>
+                    )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Name Input */}
-                <div>
-                    <label className="block text-sm font-bold uppercase mb-1 tracking-wider">Group Name</label>
-                    <input
-                        type="text"
-                        placeholder="e.g. CS-Sem5-DivA"
-                        className="w-full border-2 border-black p-3 font-mono focus:outline-none focus:ring-4 focus:ring-yellow-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                    />
-                </div>
+                    <form onSubmit={handleSubmit} className="space-y-6">
 
-                {/* Subjects Input */}
-                <div>
-                    <label className="block text-sm font-bold uppercase mb-1 tracking-wider">Subjects</label>
-                    <div className="flex gap-2 mb-3">
-                        <input
-                            type="text"
-                            placeholder="e.g. Data Structures"
-                            className="flex-1 border-2 border-black p-3 font-mono focus:outline-none focus:ring-4 focus:ring-yellow-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                            value={formData.currentSubject}
-                            onChange={(e) => setFormData({ ...formData, currentSubject: e.target.value })}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubject())}
-                        />
-                        <button
-                            type="button"
-                            onClick={handleAddSubject}
-                            className="bg-black text-white px-4 font-bold border-2 border-black hover:bg-gray-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-                        >
-                            <Plus className="w-5 h-5" />
-                        </button>
-                    </div>
+                        {/* Group Name */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Group Name Identifier</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. CS-Sem5-DivA"
+                                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                required
+                            />
+                            <p className="text-xs text-muted-foreground">Unique identifier for this faculty cohort.</p>
+                        </div>
 
-                    {/* Subject Pills */}
-                    <div className="flex flex-wrap gap-2">
-                        {formData.subjects.map((sub, idx) => (
-                            <span key={idx} className="bg-yellow-200 border-2 border-black px-3 py-1 font-bold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rotate-[-1deg] last:rotate-[2deg]">
-                                {sub}
-                                <button type="button" onClick={() => removeSubject(idx)} className="hover:text-red-600">
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </span>
-                        ))}
-                        {formData.subjects.length === 0 && (
-                            <span className="text-gray-400 font-mono italic text-sm">No subjects added yet...</span>
-                        )}
-                    </div>
-                </div>
+                        <div className="border-t border-border"></div>
 
-                <div className="pt-4 border-t-2 border-black border-dashed">
-                    <NeoButton
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-4 text-lg uppercase tracking-widest bg-green-400 hover:bg-green-500 text-black border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                        {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <Loader2 className="animate-spin" /> Processing...
-                            </span>
-                        ) : (
-                            'Create Faculty Group'
-                        )}
-                    </NeoButton>
-                </div>
-            </form>
-        </NeoCard>
+                        {/* Subjects */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Assigned Subjects</label>
+                            <div className="flex gap-2 mb-3">
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Advanced Data Structures"
+                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
+                                    value={formData.currentSubject}
+                                    onChange={(e) => setFormData({ ...formData, currentSubject: e.target.value })}
+                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubject())}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleAddSubject}
+                                    className="gap-2"
+                                >
+                                    <Plus className="w-4 h-4" /> Add
+                                </Button>
+                            </div>
+
+                            {/* Subject Pills */}
+                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
+                                {formData.subjects.length === 0 ? (
+                                    <span className="text-sm text-muted-foreground italic w-full text-center">No subjects added yet. Type above and press Enter.</span>
+                                ) : (
+                                    formData.subjects.map((sub, idx) => (
+                                        <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal">
+                                            {sub}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeSubject(idx)}
+                                                className="hover:bg-primary/90 rounded-full p-0.5 transition-colors"
+                                            >
+                                                <X className="w-3 h-3 text-white" />
+                                            </button>
+                                        </Badge>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="pt-6">
+                            <Button type="submit" disabled={loading} className="w-full">
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving Configuration...
+                                    </>
+                                ) : (
+                                    'Create Faculty Group'
+                                )}
+                            </Button>
+                        </div>
+
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
