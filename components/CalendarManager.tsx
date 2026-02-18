@@ -1,15 +1,22 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Layers, Loader2, Calendar as CalendarIcon, X } from 'lucide-react';
+import { Layers, Loader2, Calendar as CalendarIcon, Trash2, Plus } from 'lucide-react';
 import { saveCalendar } from '@/app/actions/calendar';
 import { Toaster, toast } from 'sonner';
 import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import { format } from "date-fns"
-import { cn } from "@/lib/utils"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Props {
     initialHolidays: { date: string; reason: string }[];
@@ -20,26 +27,42 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
     const [holidays, setHolidays] = useState<{ date: Date; reason: string }[]>(
         initialHolidays.map(h => ({ date: new Date(h.date), reason: h.reason }))
     );
-    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [date, setDate] = useState<Date | undefined>(undefined);
     const [isSaving, setIsSaving] = useState(false);
     const [reasonInput, setReasonInput] = useState("");
-    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-    // Check if the selected date is already a holiday
+    // Dialog States
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+
+    // Selected holiday check
     const selectedHoliday = date ? holidays.find(h => h.date.toDateString() === date.toDateString()) : undefined;
 
-    const handleAddHoliday = () => {
-        if (!date || !reasonInput.trim()) return;
-        setHolidays([...holidays, { date, reason: reasonInput }]);
-        setReasonInput("");
-        setIsPopoverOpen(false);
-        toast.success("Holiday Added", { description: `${format(date, 'PPP')} marked as ${reasonInput}` });
+    const handleDateSelect = (selectedDate: Date | undefined) => {
+        if (!selectedDate) return;
+        setDate(selectedDate);
+
+        // check if holiday exists
+        const existing = holidays.find(h => h.date.toDateString() === selectedDate.toDateString());
+        if (existing) {
+            setIsRemoveDialogOpen(true);
+        } else {
+            setReasonInput(""); // reset input
+            setIsAddDialogOpen(true);
+        }
     };
 
-    const handleRemoveHoliday = () => {
+    const confirmAddHoliday = () => {
+        if (!date || !reasonInput.trim()) return;
+        setHolidays([...holidays, { date, reason: reasonInput }]);
+        setIsAddDialogOpen(false);
+        toast.success("Holiday Added", { description: `${reasonInput} on ${format(date, 'PPP')}` });
+    };
+
+    const confirmRemoveHoliday = () => {
         if (!date) return;
         setHolidays(holidays.filter(h => h.date.toDateString() !== date.toDateString()));
-        setIsPopoverOpen(false);
+        setIsRemoveDialogOpen(false);
         toast.info("Holiday Removed", { description: `${format(date, 'PPP')} is now a working day` });
     };
 
@@ -52,121 +75,157 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
 
         try {
             await saveCalendar(year, payload);
-            toast.success('Calendar Saved', { description: 'All changes have been persisted to the database.' });
+            toast.success('Configuration Saved', { description: 'Academic calendar updated successfully.' });
         } catch (error) {
-            toast.error('Save Failed', { description: 'Could not update calendar.' });
+            toast.error('Save Failed', { description: 'Could not write to database.' });
         } finally {
             setIsSaving(false);
         }
     };
 
-    // Custom modifiers for the calendar
-    const holidayDates = holidays.map(h => h.date);
-
     return (
-        <div className="min-h-screen bg-background">
-            <Toaster position="top-right" />
+        <div className="min-h-screen bg-slate-50/50">
+            <Toaster position="top-center" richColors />
 
-            {/* Header */}
-            <div className="border-b bg-card">
-                <div className="max-w-7xl mx-auto p-6 md:px-8 flex items-center justify-between">
-                    <div>
-                        <SwissSubHeading className="text-primary mb-1">Globale Configuration</SwissSubHeading>
-                        <SwissHeading className="text-3xl">Academic Calendar {year}</SwissHeading>
-                        <p className="text-muted-foreground mt-1 text-sm">
-                            {(holidays.length)} holidays configured for this academic session.
-                        </p>
-                    </div>
-                    <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
-                        {isSaving ? 'Saving...' : 'Save Configuration'}
-                    </Button>
+            {/* Top Bar */}
+            <div className="sticky top-0 z-30 w-full border-b bg-white/80 backdrop-blur-md px-8 py-4 flex items-center justify-between shadow-sm">
+                <div>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        Academic Calendar {year}
+                    </h1>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                        Global Configuration
+                    </p>
                 </div>
+                <Button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200"
+                >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
             </div>
 
-            <main className="max-w-7xl mx-auto p-8 flex flex-col items-center">
+            <main className="max-w-6xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                <div className="bg-card border rounded-xl shadow-sm p-4 mb-8">
-                    <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={(d) => {
-                            if (d) {
-                                setDate(d);
-                                setIsPopoverOpen(true);
-                            }
-                        }}
-                        className="rounded-md border shadow mx-auto"
-                        numberOfMonths={2}
-                        defaultMonth={new Date(year, 0)}
-                        modifiers={{
-                            holiday: holidayDates
-                        }}
-                        modifiersClassNames={{
-                            holiday: "bg-red-100 text-red-600 font-bold hover:bg-red-200 hover:text-red-700"
-                        }}
-                    />
+                {/* Calendar Section */}
+                <div className="lg:col-span-8">
+                    <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                        <div className="p-6">
+                            <Calendar
+                                mode="single"
+                                selected={date}
+                                onSelect={handleDateSelect}
+                                className="w-full pointer-events-auto"
+                                numberOfMonths={2}
+                                defaultMonth={new Date(year, 0)}
+                                modifiers={{
+                                    holiday: holidays.map(h => h.date)
+                                }}
+                                modifiersClassNames={{
+                                    holiday: "bg-red-50 text-red-600 font-bold border-2 border-red-100 hover:bg-red-100 hover:border-red-200 rounded-md"
+                                }}
+                                classNames={{
+                                    month: "space-y-4 w-full",
+                                    caption: "flex justify-center pt-1 relative items-center mb-4",
+                                    caption_label: "text-lg font-bold text-slate-700",
+                                    head_cell: "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem] uppercase tracking-wider",
+                                    cell: "h-12 w-12 text-center text-sm p-0 flex items-center justify-center relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                                    day: "h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-slate-100 rounded-lg transition-all duration-200",
+                                    day_selected: "bg-indigo-600 text-white hover:bg-indigo-600 focus:bg-indigo-600",
+                                    day_today: "bg-slate-100 text-slate-900 font-bold ring-2 ring-indigo-200",
+                                }}
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                    <PopoverTrigger asChild>
-                        <span className="hidden"></span>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="center" side="bottom">
-                        <div className="p-4 space-y-4">
-                            <div className="space-y-2">
-                                <h4 className="font-medium leading-none">
-                                    {date ? format(date, 'PPP') : 'Select a date'}
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                    {selectedHoliday
-                                        ? "This date is currently marked as a holiday."
-                                        : "Mark this date as a non-instructional holiday."}
-                                </p>
-                            </div>
+                {/* Sidebar / List Section */}
+                <div className="lg:col-span-4 space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border p-4">
+                        <h3 className="font-semibold text-slate-800 mb-4 flex items-center">
+                            <CalendarIcon className="w-4 h-4 mr-2 text-indigo-500" />
+                            Configured Holidays
+                            <span className="ml-auto bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">{holidays.length}</span>
+                        </h3>
 
-                            {selectedHoliday ? (
-                                <div className="bg-muted p-3 rounded-md text-sm mb-2 flex justify-between items-center">
-                                    <span className="font-medium">{selectedHoliday.reason}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRemoveHoliday}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="grid gap-2">
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <label htmlFor="reason" className="text-sm font-medium">Reason</label>
-                                        <input
-                                            id="reason"
-                                            value={reasonInput}
-                                            onChange={(e) => setReasonInput(e.target.value)}
-                                            className="col-span-2 h-8 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                            placeholder="e.g. Diwali"
-                                        />
-                                    </div>
-                                    <Button size="sm" onClick={handleAddHoliday}>Add Holiday</Button>
-                                </div>
+                        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                            {holidays.length === 0 && (
+                                <p className="text-sm text-muted-foreground text-center py-8 italic">No holidays added yet.</p>
                             )}
+                            {holidays.sort((a, b) => a.date.getTime() - b.date.getTime()).map((h, i) => (
+                                <div key={i} className="group flex items-start p-3 bg-slate-50 hover:bg-white border hover:border-indigo-200 rounded-lg transition-all duration-200 hover:shadow-md cursor-default">
+                                    <div className="flex-shrink-0 w-10 text-center mr-3">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{format(h.date, 'MMM')}</div>
+                                        <div className="text-lg font-bold text-slate-700 leading-none">{format(h.date, 'd')}</div>
+                                    </div>
+                                    <div className="flex-grow">
+                                        <p className="text-sm font-medium text-slate-800 group-hover:text-indigo-700 transition-colors">{h.reason}</p>
+                                        <p className="text-xs text-slate-400">{format(h.date, 'EEEE')}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => { setDate(h.date); setIsRemoveDialogOpen(true); }}
+                                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-opacity"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
                         </div>
-                    </PopoverContent>
-                </Popover>
-
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-                    {holidays.sort((a, b) => a.date.getTime() - b.date.getTime()).map((h, i) => (
-                        <div key={i} className="flex items-center p-3 border rounded-lg bg-card shadow-sm">
-                            <div className="flex-col flex items-center justify-center h-12 w-12 rounded-md bg-red-50 text-red-600 border border-red-100 mr-4">
-                                <span className="text-xs font-bold uppercase">{format(h.date, 'MMM')}</span>
-                                <span className="text-lg font-bold leading-none">{format(h.date, 'd')}</span>
-                            </div>
-                            <div>
-                                <p className="font-medium">{h.reason}</p>
-                                <p className="text-xs text-muted-foreground">{format(h.date, 'EEEE')}</p>
-                            </div>
-                        </div>
-                    ))}
+                    </div>
                 </div>
 
             </main>
+
+            {/* ADD COMPONENT: Alert Dialog for Adding */}
+            <AlertDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <AlertDialogContent className="sm:max-w-[425px]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Mark Holiday</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Set <span className="font-bold text-foreground">{date ? format(date, 'PPPP') : ''}</span> as a non-instructional day?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <label htmlFor="reason" className="text-sm font-medium">Holiday Reason</label>
+                            <input
+                                id="reason"
+                                autoFocus
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="e.g. Independence Day"
+                                value={reasonInput}
+                                onChange={(e) => setReasonInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && confirmAddHoliday()}
+                            />
+                        </div>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmAddHoliday} className="bg-indigo-600 hover:bg-indigo-700">Add Holiday</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* REMOVE COMPONENT: Alert Dialog for Removing */}
+            <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remove Holiday?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove <span className="font-bold text-foreground">{selectedHoliday?.reason}</span> on {date ? format(date, 'PPPP') : ''}?
+                            This will make it a working instructional day.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmRemoveHoliday} className="bg-red-600 hover:bg-red-700">Remove</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </div>
     );
 }
