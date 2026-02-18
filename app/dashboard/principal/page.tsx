@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
-import { ArrowRight, BarChart3, GraduationCap, Users2, TrendingUp } from 'lucide-react';
+import { ArrowRight, BarChart3, GraduationCap, Users2, TrendingUp, CalendarRange } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 
 export default function PrincipalDashboard() {
@@ -87,16 +87,24 @@ export default function PrincipalDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* Metrics Card (Preserved from original design) */}
-                <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-lg h-full flex flex-col justify-between">
-                    <CardHeader>
-                        <SwissSubHeading className="text-slate-400">Total Enrollment</SwissSubHeading>
-                        <CardTitle className="text-4xl mt-2">12,450</CardTitle>
+                {/* Academic Calendar */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>Planning</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">Academic Calendar</CardTitle>
+                            <CalendarRange className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center text-sm text-green-400 mt-2">
-                            <TrendingUp className="w-4 h-4 mr-2" /> +5.2% YOY
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Set holidays and override working days.
                         </div>
+                        <Link href="/admin/calendar">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Manage Dates <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
                     </CardContent>
                 </Card>
             </div>
