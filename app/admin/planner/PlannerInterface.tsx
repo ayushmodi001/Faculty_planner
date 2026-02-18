@@ -10,6 +10,7 @@ import { z } from 'zod';
 import PlanViewer from './PlanViewer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 
 interface PlannerInterfaceProps {
     facultyGroups: IFacultyGroup[];
@@ -33,12 +34,20 @@ type GeneratedPlan = {
 export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProps) {
     const [selectedGroupId, setSelectedGroupId] = useState<string>("");
     const [syllabusText, setSyllabusText] = useState<string>("");
+
+    // New State Fields
+    const [subject, setSubject] = useState("");
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(
+        new Date(new Date().setMonth(new Date().getMonth() + 4)).toISOString().split('T')[0]
+    );
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
 
     const handleGenerate = async () => {
-        if (!selectedGroupId || !syllabusText.trim()) {
-            toast.error("Input missing", { description: "Please select a group and paste the syllabus." });
+        if (!selectedGroupId || !syllabusText.trim() || !startDate || !endDate || !subject) {
+            toast.error("Input missing", { description: "Please fill all fields." });
             return;
         }
 
@@ -52,7 +61,9 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                 body: JSON.stringify({
                     facultyGroupId: selectedGroupId,
                     syllabusText: syllabusText,
-                    startDate: new Date().toISOString() // Start from today/next working day
+                    subject: subject,
+                    startDate: startDate,
+                    endDate: endDate
                 })
             });
 
@@ -87,9 +98,7 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                     <CardContent className="space-y-6">
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Faculty Group
-                            </label>
+                            <label className="text-sm font-medium">Faculty Group</label>
                             <Select onValueChange={setSelectedGroupId} value={selectedGroupId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a group..." />
@@ -106,18 +115,41 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                                     )}
                                 </SelectContent>
                             </Select>
-                            <p className="text-[0.8rem] text-muted-foreground">
-                                This determines availability and holidays.
-                            </p>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Syllabus Content
-                            </label>
+                            <label className="text-sm font-medium">Subject Name</label>
+                            <Input
+                                placeholder="e.g. Data Structures"
+                                value={subject}
+                                onChange={(e) => setSubject(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Start Date</label>
+                                <Input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">End Date</label>
+                                <Input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Syllabus Content</label>
                             <Textarea
-                                placeholder="Paste the full syllabus text here... (Units, Modules, Topics)"
-                                className="min-h-[300px] font-mono text-sm resize-none"
+                                placeholder="Paste the full syllabus text here..."
+                                className="min-h-[200px] font-mono text-sm resize-none"
                                 value={syllabusText}
                                 onChange={(e) => setSyllabusText(e.target.value)}
                             />
@@ -127,7 +159,7 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                             className="w-full"
                             size="lg"
                             onClick={handleGenerate}
-                            disabled={isGenerating || !selectedGroupId || !syllabusText}
+                            disabled={isGenerating || !selectedGroupId || !syllabusText || !subject || !startDate || !endDate}
                         >
                             {isGenerating ? (
                                 <>
