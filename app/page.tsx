@@ -10,8 +10,7 @@ export default function LandingPage() {
       <nav className="border-b bg-background/90 backdrop-blur sticky top-0 z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">U</div>
-            <span className="font-bold text-xl tracking-tight">UAPS <span className="text-muted-foreground font-normal">Enterprise</span></span>
+            <Logo size="md" />
           </div>
           <div className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-sm font-medium hover:text-primary transition-colors">Features</a>

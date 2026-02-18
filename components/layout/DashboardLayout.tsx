@@ -17,8 +17,10 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
                 <div className="container mx-auto px-4 h-14 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                            <div className="w-8 h-8 bg-primary rounded-sm flex items-center justify-center text-primary-foreground font-bold shadow-sm">U</div>
-                            <span className="font-bold text-lg tracking-tight">UAPS <span className="text-muted-foreground font-normal ml-1 text-sm uppercase tracking-wider">{role}</span></span>
+                            <Logo />
+                            <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-bold uppercase tracking-wider border border-border">
+                                {role} Portal
+                            </span>
                         </Link>
                     </div>
 
