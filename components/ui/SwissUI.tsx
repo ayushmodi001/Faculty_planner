@@ -48,6 +48,10 @@ export function CardHeader({ children, className, ...props }: CardProps) {
     return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props}>{children}</div>;
 }
 
+export function CardDescription({ children, className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+
 export function CardTitle({ children, className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
     return <h3 className={cn("font-semibold leading-none tracking-tight", className)} {...props}>{children}</h3>;
 }
