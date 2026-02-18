@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
       - If the syllabus is too long, you MUST mark less critical topics as "is_self_study: true".
       - You can split large topics into "Part 1" and "Part 2" if needed.
       - Maintain logical prerequisite order.
+      - **CRITICAL**: If the syllabus text contains duration indicators (like "Hours", "Hrs", "T", "L", or numbers at the end of lines like "15 8"), USE THEM as a guide for how many lectures to allocate to that unit.
       
       OUTPUT FORMAT:
       Return ONLY a JSON object matching this schema:
