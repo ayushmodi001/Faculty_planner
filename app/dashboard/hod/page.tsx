@@ -18,6 +18,29 @@ export default function HODDashboard() {
             {/* Quick Access Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
 
+                {/* User Management Module */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>Administration</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">User & Faculty</CardTitle>
+                            <div className="p-1 bg-primary/10 rounded">
+                                <Users className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Add Faculty, Students, and Staff via Form or Excel Upload.
+                        </div>
+                        <Link href="/admin/users">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Manage Users <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
                 {/* Faculty Groups Module */}
                 <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
                     <CardHeader className="pb-2">
