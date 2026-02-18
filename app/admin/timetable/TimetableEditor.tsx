@@ -98,14 +98,70 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
         }
     };
 
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const toastId = toast.loading("Uploading timetable...");
+
+        try {
+            const res = await fetch('/api/admin/timetable/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || "Upload failed");
+
+            toast.success(`Imported ${data.updated} groups successfully!`, { id: toastId });
+            // Refresh if current group was updated? Ideally yes, but simpler to just notify.
+
+        } catch (error: any) {
+            toast.error(error.message, { id: toastId });
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+        }
+    };
+
+    const handleExport = () => {
+        window.open('/api/admin/timetable/download', '_blank');
+    };
+
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5" />
-                        Select Class / Faculty Group
-                    </CardTitle>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5" />
+                            Select Class / Faculty Group
+                        </CardTitle>
+                        <div className="flex gap-2">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept=".xlsx,.xls"
+                                onChange={handleFileChange}
+                            />
+                            <Button variant="outline" size="sm" onClick={handleImportClick}>
+                                <Plus className="w-4 h-4 mr-2" /> Import Excel
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleExport}>
+                                <Save className="w-4 h-4 mr-2" /> Export Excel
+                            </Button>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Select onValueChange={setSelectedGroupId} value={selectedGroupId}>
