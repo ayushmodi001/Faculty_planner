@@ -34,10 +34,15 @@ export default function AdminSetupPage() {
 
             if (!response.ok) {
                 const error = await response.json();
+                if (response.status === 403) {
+                    throw new Error("Invalid Setup Key. Access Denied.");
+                }
                 throw new Error(error.error || "Setup failed");
             }
 
-            toast.success("Admin Account Created", { description: "You can now log in." });
+            toast.success("Admin Account Created", { description: "Redirecting to login..." });
+            // Small delay to let the toast appear
+            await new Promise(resolve => setTimeout(resolve, 1500));
             router.push('/login');
 
         } catch (error: any) {
