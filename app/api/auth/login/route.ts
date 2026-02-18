@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
         await dbConnect();
 
         // 1. Find User (explicitly select passwordHash as it is excluded by default)
-        const user = await User.findOne({ email }).select('+passwordHash');
+        // Ensure email is lowercased to match the schema's storage format
+        const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
 
         if (!user) {
             return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
