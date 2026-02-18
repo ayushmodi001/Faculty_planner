@@ -18,6 +18,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/SwissUI"
+import { Input } from "@/components/ui/input"
 
 interface Props {
     initialHolidays: { date: string; reason: string }[];
@@ -95,7 +96,7 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
                     <Button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md"
+                        className="rounded-full shadow-md"
                     >
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
                         {isSaving ? 'Saving...' : 'Save Configuration'}
@@ -155,12 +156,14 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
                                         <p className="text-sm font-medium text-slate-800 group-hover:text-indigo-700 transition-colors">{h.reason}</p>
                                         <p className="text-xs text-slate-400">{format(h.date, 'EEEE')}</p>
                                     </div>
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => { setDate(h.date); setIsRemoveDialogOpen(true); }}
-                                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-opacity"
+                                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-destructive hover:bg-destructive/10 transition-all h-8 w-8"
                                     >
                                         <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    </Button>
                                 </div>
                             ))}
                         </div>
@@ -181,10 +184,9 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <label htmlFor="reason" className="text-sm font-medium">Holiday Reason</label>
-                            <input
+                            <Input
                                 id="reason"
                                 autoFocus
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 placeholder="e.g. Independence Day"
                                 value={reasonInput}
                                 onChange={(e) => setReasonInput(e.target.value)}
@@ -194,7 +196,7 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
                     </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmAddHoliday} className="bg-indigo-600 hover:bg-indigo-700">Add Holiday</AlertDialogAction>
+                        <AlertDialogAction onClick={confirmAddHoliday}>Add Holiday</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -211,7 +213,7 @@ export default function CalendarManager({ initialHolidays, year }: Props) {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmRemoveHoliday} className="bg-red-600 hover:bg-red-700">Remove</AlertDialogAction>
+                        <AlertDialogAction onClick={confirmRemoveHoliday} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
