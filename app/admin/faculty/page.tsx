@@ -1,7 +1,9 @@
 import React from 'react';
 import { getAllFacultyGroups } from '@/app/actions/faculty';
-import FacultyGroupList from '@/components/FacultyGroupList';
 import { IFacultyGroup } from '@/models/FacultyGroup';
+import { Button, SwissHeading, SwissSubHeading, Card, CardHeader, CardTitle, CardContent, Badge } from '@/components/ui/SwissUI';
+import { Plus, Users, BookOpen, Calendar as CalendarIcon } from 'lucide-react';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,18 +12,83 @@ export default async function FacultyPage() {
     const groups = result.success ? (result.data as IFacultyGroup[]) : [];
 
     return (
-        <div className="min-h-screen p-8 bg-zinc-50 text-black font-sans">
-            <header className="max-w-7xl mx-auto mb-12 border-b-4 border-black pb-6">
-                <h1 className="text-6xl font-black uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                    Faculty Command Center
-                </h1>
-                <p className="text-xl font-bold mt-2 font-mono bg-yellow-300 inline-block px-2 rotate-1 border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                    HOD: Manage Schedules & Groups
-                </p>
-            </header>
+        <div className="min-h-screen bg-background text-foreground font-sans p-8">
+
+            {/* Page Header */}
+            <div className="max-w-7xl mx-auto mb-8 flex justify-between items-end border-b border-border pb-6">
+                <div>
+                    <SwissSubHeading className="mb-2 text-primary">Administration Portal</SwissSubHeading>
+                    <SwissHeading>Faculty Groups</SwissHeading>
+                    <p className="text-muted-foreground mt-2 max-w-2xl">
+                        Manage department-level faculty groups, assign subjects, and configure weekly timetables.
+                    </p>
+                </div>
+                <Link href="/admin/faculty/new">
+                    <Button className="gap-2 shadow-lg hover:shadow-xl transition-all">
+                        <Plus className="w-4 h-4" /> Create New Group
+                    </Button>
+                </Link>
+            </div>
 
             <main className="max-w-7xl mx-auto">
-                <FacultyGroupList groups={groups} />
+                {groups.length === 0 ? (
+                    <Card className="border-dashed border-2 bg-muted/20">
+                        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                                <Users className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                            <h3 className="text-lg font-bold text-foreground">No Faculty Groups Found</h3>
+                            <p className="text-muted-foreground mb-6 max-w-sm">
+                                Get started by creating your first faculty group to begin scheduling classes.
+                            </p>
+                            <Link href="/admin/faculty/new">
+                                <Button variant="outline">Create Group</Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {groups.map((group) => (
+                            <Card key={group._id as string} className="group hover:border-primary/50 transition-all duration-300">
+                                <CardHeader className="pb-3">
+                                    <div className="flex justify-between items-start">
+                                        <Badge variant="default" className="mb-2 opacity-90 group-hover:opacity-100 transition-opacity">
+                                            {group.subjects.length} Subjects
+                                        </Badge>
+                                        <Users className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                    </div>
+                                    <CardTitle className="text-xl uppercase tracking-tight">{group.name}</CardTitle>
+                                </CardHeader>
+
+                                <CardContent>
+                                    <div className="space-y-3 mb-6">
+                                        {group.subjects.slice(0, 3).map((subject, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-sm border border-transparent hover:border-border transition-colors">
+                                                <BookOpen className="w-3 h-3 text-primary/70" />
+                                                <span className="truncate flex-1">{subject}</span>
+                                            </div>
+                                        ))}
+                                        {group.subjects.length > 3 && (
+                                            <div className="text-xs font-medium text-primary pl-1 cursor-pointer hover:underline">
+                                                + {group.subjects.length - 3} more subjects...
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-4 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-1">
+                                            <CalendarIcon className="w-3 h-3" />
+                                            <span>Created {new Date(group.createdAt as any).toLocaleDateString()}</span>
+                                        </div>
+                                        <Badge variant="success" className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-2">
+                                            Active
+                                        </Badge>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </main>
         </div>
     );
