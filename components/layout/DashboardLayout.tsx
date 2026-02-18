@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button'; // Usage of shadcn button
 import { Home, LogOut } from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
