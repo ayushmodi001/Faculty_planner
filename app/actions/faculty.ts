@@ -39,9 +39,15 @@ export async function createFacultyGroup(data: CreateFacultyGroupInput) {
             return { success: false, error: 'Faculty Group with this name already exists' };
         }
 
-        // Cast to any because Zod produce a plain object for timetable, but Mongoose expects a Map
-        // Mongoose will automatically hydrate the plain object into a Map
-        const newGroup = await FacultyGroup.create(validatedData as any);
+        // Convert the Zod 'Record' to a 'Map' which Mongoose expects for the timetable field
+        const facultyData = {
+            ...validatedData,
+            timetable: validatedData.timetable
+                ? new Map(Object.entries(validatedData.timetable))
+                : undefined
+        };
+
+        const newGroup = await FacultyGroup.create(facultyData);
 
         revalidatePath('/admin/faculty');
 
