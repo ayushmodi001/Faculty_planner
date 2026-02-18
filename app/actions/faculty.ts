@@ -10,11 +10,14 @@ const CreateFacultyGroupSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters"),
     subjects: z.array(z.string()).min(1, "At least one subject is required"),
     // Timetable is optional on creation, can be added later
-    timetable: z.record(z.array(z.object({
-        startTime: z.string(),
-        endTime: z.string(),
-        room: z.string().optional()
-    }))).optional()
+    timetable: z.record(
+        z.string(), // Key: Day name (e.g., "Monday")
+        z.array(z.object({
+            startTime: z.string(),
+            endTime: z.string(),
+            room: z.string().optional()
+        }))
+    ).optional()
 });
 
 export type CreateFacultyGroupInput = z.infer<typeof CreateFacultyGroupSchema>;
