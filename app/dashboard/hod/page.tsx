@@ -55,25 +55,25 @@ export default async function HODDashboard() {
 
                 {/* Card 1: Faculty (High Contrast Dark) */}
                 <Link href="/admin/users" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-none shadow-xl bg-[#283618] text-[#FEFAE0] rounded-[24px] overflow-hidden relative hover:scale-[1.02] transition-transform duration-300">
+                    <Card className="h-full border-none shadow-xl bg-primary text-primary-foreground rounded-[24px] overflow-hidden relative hover:scale-[1.02] transition-transform duration-300">
                         <div className="absolute top-0 right-0 p-8 opacity-10">
                             <Users className="w-32 h-32 -mr-10 -mt-10" />
                         </div>
                         <CardHeader className="pb-2 relative z-10">
                             <div className="flex justify-between items-start mb-6">
                                 <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm">
-                                    <Users className="w-6 h-6 text-[#FEFAE0]" />
+                                    <Users className="w-6 h-6 text-primary-foreground" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-white -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-white -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
                                 <div className="text-4xl font-black">{facultyCount}</div>
-                                <CardTitle className="text-lg text-[#C9C3A3] font-medium">Active Faculty</CardTitle>
+                                <CardTitle className="text-lg text-muted-foreground font-medium">Active Faculty</CardTitle>
                             </div>
                         </CardHeader>
                         <CardContent className="relative z-10">
-                            <div className="flex items-center gap-2 mt-4 text-xs font-bold uppercase tracking-wider text-[#A6835B]">
-                                <span className="w-2 h-2 rounded-full bg-[#A6835B] animate-pulse"></span>
+                            <div className="flex items-center gap-2 mt-4 text-xs font-bold uppercase tracking-wider text-accent-foreground">
+                                <span className="w-2 h-2 rounded-full bg-accent-foreground animate-pulse"></span>
                                 Online Now
                             </div>
                         </CardContent>
@@ -81,7 +81,7 @@ export default async function HODDashboard() {
                 </Link>
 
                 {/* Card 2: Student Stats (Medium Contrast) */}
-                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full border-none shadow-lg bg-[#5C6836] text-white rounded-[24px] overflow-hidden relative group hover:scale-[1.02] transition-transform duration-300">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full border-none shadow-lg bg-secondary text-secondary-foreground rounded-[24px] overflow-hidden relative group hover:scale-[1.02] transition-transform duration-300">
                     <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/20 to-transparent"></div>
                     <CardHeader className="pb-2 relative z-10">
                         <div className="flex justify-between items-start mb-6">
@@ -91,11 +91,11 @@ export default async function HODDashboard() {
                         </div>
                         <div className="space-y-1">
                             <div className="text-4xl font-black">{studentCount}</div>
-                            <CardTitle className="text-lg text-[#E9E5D0] font-medium">Students Enrolled</CardTitle>
+                            <CardTitle className="text-lg text-secondary-foreground/80 font-medium">Students Enrolled</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="relative z-10">
-                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xs font-medium text-[#E9E5D0]">
+                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xs font-medium text-secondary-foreground/80">
                             <span>Attendance</span>
                             <span className="font-bold text-white">94%</span>
                         </div>
@@ -104,17 +104,17 @@ export default async function HODDashboard() {
 
                 {/* Card 3: Curriculum (Light but Bold) */}
                 <Link href="/admin/subjects" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-2 border-[#C9C3A3] shadow-sm bg-[#F2EFE5] hover:bg-white hover:border-[#A6835B] rounded-[24px] overflow-hidden transition-all duration-300">
+                    <Card className="h-full border border-border shadow-sm bg-card hover:bg-accent/50 hover:border-accent rounded-[24px] overflow-hidden transition-all duration-300">
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#283618] transition-colors duration-300">
-                                    <BookOpen className="w-6 h-6 text-[#283618] group-hover:text-[#FEFAE0]" />
+                                <div className="p-3 bg-muted rounded-2xl group-hover:bg-primary transition-colors duration-300">
+                                    <BookOpen className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-4xl font-black text-[#283618]">{subjectCount}</div>
-                                <CardTitle className="text-lg text-[#5C6836]">Subjects</CardTitle>
+                                <div className="text-4xl font-black text-foreground">{subjectCount}</div>
+                                <CardTitle className="text-lg text-muted-foreground">Subjects</CardTitle>
                             </div>
                         </CardHeader>
                     </Card>
@@ -122,25 +122,25 @@ export default async function HODDashboard() {
 
                 {/* Card 4: Planner Read Only */}
                 <Link href="/admin/planner" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-none shadow-md bg-white rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300 ring-1 ring-[#C9C3A3]/30">
+                    <Card className="h-full border-none shadow-md bg-card ring-1 ring-border rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300">
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-[#A6835B]/10 rounded-2xl group-hover:bg-[#A6835B] transition-colors duration-300">
-                                    <FileText className="w-6 h-6 text-[#A6835B] group-hover:text-white" />
+                                <div className="p-3 bg-accent/10 rounded-2xl group-hover:bg-accent transition-colors duration-300">
+                                    <FileText className="w-6 h-6 text-accent group-hover:text-white" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-xl font-black text-[#283618] mt-2">Academic Planner</div>
+                                <div className="text-xl font-black text-foreground mt-2">Academic Planner</div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-[#A6835B] bg-[#A6835B]/10 px-2 py-0.5 rounded-full">
+                                    <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                                         VIEW ONLY
                                     </span>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-[#5C6836] font-medium leading-tight">
+                            <p className="text-sm text-muted-foreground font-medium leading-tight">
                                 Inspect generated schedules and curriculum flow.
                             </p>
                         </CardContent>
@@ -149,30 +149,31 @@ export default async function HODDashboard() {
 
                 {/* Card 5: Academic Calendar Link */}
                 <Link href="/dashboard/hod/calendar" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-none shadow-md bg-white rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300 ring-1 ring-[#C9C3A3]/30">
+                    <Card className="h-full border-none shadow-md bg-card ring-1 ring-border rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300">
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-[#283618]/10 rounded-2xl group-hover:bg-[#283618] transition-colors duration-300">
-                                    <CalendarRange className="w-6 h-6 text-[#283618] group-hover:text-white" />
+                                <div className="p-3 bg-primary/10 rounded-2xl group-hover:bg-primary transition-colors duration-300">
+                                    <CalendarRange className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#283618] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-xl font-black text-[#283618] mt-2">Academic Calendar</div>
+                                <div className="text-xl font-black text-foreground mt-2">Academic Calendar</div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-[#283618] bg-[#283618]/10 px-2 py-0.5 rounded-full">
+                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                                         VIEW ONLY
                                     </span>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-[#5C6836] font-medium leading-tight">
+                            <p className="text-sm text-muted-foreground font-medium leading-tight">
                                 View holidays, exams, and important term dates.
                             </p>
                         </CardContent>
                     </Card>
                 </Link>
+
 
             </div>
 

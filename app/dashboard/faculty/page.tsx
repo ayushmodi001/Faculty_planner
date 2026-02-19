@@ -159,18 +159,18 @@ export default function FacultyDashboard() {
 
                 {/* Right Column: Actions */}
                 <div className="space-y-6">
-                    <SwissHeading className="text-2xl mb-4 text-[#283618]">Quick Actions</SwissHeading>
+                    <SwissHeading className="text-2xl mb-4 text-foreground">Quick Actions</SwissHeading>
 
                     {/* Academic Calendar Link */}
                     <Link href="/dashboard/faculty/calendar">
-                        <Card className="hover:border-[#283618] cursor-pointer transition-colors border-[#C9C3A3] bg-white rounded-[24px] shadow-sm mb-4">
+                        <Card className="hover:border-primary cursor-pointer transition-colors border-border bg-card rounded-[24px] shadow-sm mb-4">
                             <CardContent className="flex items-center gap-4 p-5">
-                                <div className="p-3 bg-[#E9E5D0] text-[#283618] rounded-2xl">
+                                <div className="p-3 bg-muted text-foreground rounded-2xl">
                                     <CalendarCheck className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-[#283618] text-sm">Academic Calendar</p>
-                                    <p className="text-xs text-[#5C6836] mt-0.5">Holidays & Term Dates</p>
+                                    <p className="font-bold text-foreground text-sm">Academic Calendar</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Holidays & Term Dates</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -178,39 +178,39 @@ export default function FacultyDashboard() {
 
                     {/* Academic Planner Link */}
                     <Link href="/dashboard/faculty/planner">
-                        <Card className="group cursor-pointer border-none shadow-md bg-[#5C6836] text-white rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all mb-4">
+                        <Card className="group cursor-pointer border-none shadow-md bg-secondary text-secondary-foreground rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all mb-4">
                             <CardContent className="p-6 relative z-10">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm">
                                         <BookOpen className="w-6 h-6 text-white" />
                                     </div>
-                                    <ArrowRight className="w-5 h-5 text-[#E9E5D0] group-hover:translate-x-1 transition-transform" />
+                                    <ArrowRight className="w-5 h-5 text-secondary-foreground/60 group-hover:translate-x-1 transition-transform" />
                                 </div>
                                 <h3 className="text-lg font-bold">Academic Planner</h3>
-                                <p className="text-sm text-[#E9E5D0] mt-1 opacity-90">View syllabus progression and upcoming topics.</p>
+                                <p className="text-sm text-secondary-foreground/80 mt-1">View syllabus progression and upcoming topics.</p>
                             </CardContent>
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
                         </Card>
                     </Link>
 
-                    <Card className="hover:border-[#A6835B] cursor-pointer transition-colors border-[#C9C3A3] bg-white rounded-[24px] shadow-sm">
+                    <Card className="hover:border-destructive cursor-pointer transition-colors border-border bg-card rounded-[24px] shadow-sm">
                         <CardContent className="flex items-center gap-4 p-5">
-                            <div className="p-3 bg-[#FEFAE0] text-[#A6835B] rounded-2xl">
+                            <div className="p-3 bg-destructive/10 text-destructive rounded-2xl">
                                 <AlertCircle className="w-5 h-5" />
                             </div>
                             <div>
-                                <p className="font-bold text-[#283618] text-sm">Report Issue</p>
-                                <p className="text-xs text-[#5C6836] mt-0.5">Flag scheduling conflict</p>
+                                <p className="font-bold text-foreground text-sm">Report Issue</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Flag scheduling conflict</p>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <div className="p-6 bg-[#E9E5D0]/30 rounded-[24px] border border-[#C9C3A3]/50 mt-8">
-                        <h4 className="font-bold text-[#283618] mb-2 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#A6835B]"></span>
+                    <div className="p-6 bg-accent/10 rounded-[24px] border border-accent/20 mt-8">
+                        <h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
                             Did you know?
                         </h4>
-                        <p className="text-sm text-[#5C6836] leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                             The AI engine has optimized your schedule to free up Thursday afternoons based on your preferences.
                         </p>
                     </div>
