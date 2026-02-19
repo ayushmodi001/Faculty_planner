@@ -161,6 +161,21 @@ export default function FacultyDashboard() {
                 <div className="space-y-6">
                     <SwissHeading className="text-2xl mb-4 text-[#283618]">Quick Actions</SwissHeading>
 
+                    {/* Academic Calendar Link */}
+                    <Link href="/dashboard/faculty/calendar">
+                        <Card className="hover:border-[#283618] cursor-pointer transition-colors border-[#C9C3A3] bg-white rounded-[24px] shadow-sm mb-4">
+                            <CardContent className="flex items-center gap-4 p-5">
+                                <div className="p-3 bg-[#E9E5D0] text-[#283618] rounded-2xl">
+                                    <CalendarCheck className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-[#283618] text-sm">Academic Calendar</p>
+                                    <p className="text-xs text-[#5C6836] mt-0.5">Holidays & Term Dates</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Link>
+
                     {/* Academic Planner Link */}
                     <Link href="/dashboard/faculty/planner">
                         <Card className="group cursor-pointer border-none shadow-md bg-[#5C6836] text-white rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all mb-4">

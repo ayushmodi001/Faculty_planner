@@ -90,8 +90,27 @@ export default function StudentDashboard() {
                             <SwissSubHeading className="text-[#E9E5D0]">Course Plan</SwissSubHeading>
                         </CardHeader>
                         <CardContent className="pb-6">
-                            <div className="text-3xl font-black tracking-tight text-white mb-2">View Roadmap</div>
-                            <p className="text-xs text-[#E9E5D0]/80 font-medium">Click to track your syllabus progression and upcoming topics.</p>
+                            <div className="text-xl font-black tracking-tight text-white mb-2">View Roadmap</div>
+                            <p className="text-xs text-[#E9E5D0]/80 font-medium">Click to track your syllabus progression.</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                {/* Calendar Card */}
+                <Link href="/dashboard/student/calendar" className="h-full col-span-1 md:col-span-2 lg:col-span-1">
+                    <Card className="flex flex-col justify-between border-none shadow-md bg-white ring-1 ring-[#C9C3A3]/30 rounded-[24px] overflow-hidden relative group hover:shadow-lg transition-all cursor-pointer h-full">
+                        <CardHeader className="pb-1">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="p-2 bg-[#E9E5D0] rounded-xl text-[#283618]">
+                                    <Calendar className="w-5 h-5" />
+                                </div>
+                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:translate-x-1 transition-transform" />
+                            </div>
+                            <SwissSubHeading className="text-[#5C6836]">Calendar</SwissSubHeading>
+                        </CardHeader>
+                        <CardContent className="pb-6">
+                            <div className="text-xl font-black tracking-tight text-[#283618] mb-2">Academic Dates</div>
+                            <p className="text-xs text-[#5C6836]/80 font-medium">View holidays and exam schedule.</p>
                         </CardContent>
                     </Card>
                 </Link>
