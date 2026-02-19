@@ -55,8 +55,15 @@ export async function GET(req: NextRequest) {
                 const [start, end] = timeRange.split('-');
 
                 days.forEach(day => {
+                    // Convert DAY (MONDAY) to Title Case (Monday) for lookup
+                    const lookupDay = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
+
                     // Find slot for this day and time
-                    const daySlots = timetable[day] || [];
+                    // Check both Title Case and Upper Case to be safe
+                    const daySlots = timetable[lookupDay] || timetable[day] || [];
+
+                    // console.log(`Checking ${day} (${lookupDay}) at ${start}-${end}. Slots:`, daySlots.length);
+
                     const slot = daySlots.find((s: any) => s.startTime === start && s.endTime === end);
 
                     if (slot) {
