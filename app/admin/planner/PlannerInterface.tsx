@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 
 interface PlannerInterfaceProps {
     facultyGroups: IFacultyGroup[];
+    readOnly?: boolean;
 }
 
 // Type for the AI response
@@ -31,7 +32,7 @@ type GeneratedPlan = {
     }
 }
 
-export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProps) {
+export default function PlannerInterface({ facultyGroups, readOnly = false }: PlannerInterfaceProps) {
     const [selectedGroupId, setSelectedGroupId] = useState<string>("");
     const [syllabusText, setSyllabusText] = useState<string>("");
 
@@ -88,18 +89,19 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
 
             {/* Input Section */}
             <div className="lg:col-span-1 space-y-6">
-                <Card className="h-fit sticky top-24">
+                <Card className={`h-fit sticky top-24 ${readOnly ? 'opacity-60' : ''}`}>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Wand2 className="w-5 h-5 text-primary" />
                             Configuration
+                            {readOnly && <span className="ml-auto text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Read Only</span>}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Faculty Group</label>
-                            <Select onValueChange={setSelectedGroupId} value={selectedGroupId}>
+                            <Select onValueChange={setSelectedGroupId} value={selectedGroupId} disabled={readOnly}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a group..." />
                                 </SelectTrigger>
@@ -123,6 +125,7 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                                 placeholder="e.g. Data Structures"
                                 value={subject}
                                 onChange={(e) => setSubject(e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
 
@@ -133,6 +136,7 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
+                                    disabled={readOnly}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -141,6 +145,7 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
+                                    disabled={readOnly}
                                 />
                             </div>
                         </div>
@@ -152,6 +157,7 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                                 className="min-h-[200px] font-mono text-sm resize-none"
                                 value={syllabusText}
                                 onChange={(e) => setSyllabusText(e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
 
@@ -159,11 +165,15 @@ export default function PlannerInterface({ facultyGroups }: PlannerInterfaceProp
                             className="w-full"
                             size="lg"
                             onClick={handleGenerate}
-                            disabled={isGenerating || !selectedGroupId || !syllabusText || !subject || !startDate || !endDate}
+                            disabled={isGenerating || !selectedGroupId || !syllabusText || !subject || !startDate || !endDate || readOnly}
                         >
                             {isGenerating ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Plan...
+                                </>
+                            ) : readOnly ? (
+                                <>
+                                    <AlertCircle className="mr-2 h-4 w-4" /> View Only Mode
                                 </>
                             ) : (
                                 <>
