@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { IFacultyGroup } from '@/models/FacultyGroup';
 import { Card, CardContent, CardHeader, CardTitle, Button, SwissSubHeading } from '@/components/ui/SwissUI';
