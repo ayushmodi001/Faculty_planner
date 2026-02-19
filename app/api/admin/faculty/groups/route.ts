@@ -25,6 +25,8 @@ export async function PUT(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
         const body = await req.json();
+        console.log("PUT /api/admin/faculty/groups Body:", body);
+
 
         if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 

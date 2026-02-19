@@ -182,6 +182,53 @@ export default function CreateFacultyGroupForm() {
                             </div>
                         </div>
 
+                        <div className="border-t border-border"></div>
+
+                        {/* Associated Faculties */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Faculties</label>
+                            <div className="flex gap-2 mb-3">
+                                <select
+                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
+                                    value={formData.currentFaculty}
+                                    onChange={(e) => setFormData({ ...formData, currentFaculty: e.target.value })}
+                                >
+                                    <option value="" disabled>Select Faculty Member</option>
+                                    {availableFaculties.map(fac => (
+                                        <option key={fac.email} value={fac.name}>{fac.name}</option>
+                                    ))}
+                                </select>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleAddFaculty}
+                                    className="gap-2"
+                                >
+                                    <Plus className="w-4 h-4" /> Add
+                                </Button>
+                            </div>
+
+                            {/* Faculty Pills */}
+                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
+                                {formData.members.length === 0 ? (
+                                    <span className="text-sm text-muted-foreground italic w-full text-center">No faculties assigned yet. Select above.</span>
+                                ) : (
+                                    formData.members.map((fac, idx) => (
+                                        <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-background text-foreground border">
+                                            {fac}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeFaculty(idx)}
+                                                className="hover:bg-primary/90 hover:text-white rounded-full p-0.5 transition-colors"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </Badge>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
                         <div className="pt-6">
                             <Button type="submit" disabled={loading} className="w-full">
                                 {loading ? (
