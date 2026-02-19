@@ -41,6 +41,29 @@ export default function HODDashboard() {
                     </CardContent>
                 </Card>
 
+                {/* Subject Management Module */}
+                <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
+                    <CardHeader className="pb-2">
+                        <SwissSubHeading>Curriculum</SwissSubHeading>
+                        <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">Subjects Registry</CardTitle>
+                            <div className="p-1 bg-primary/10 rounded">
+                                <BookOpen className="w-5 h-5 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 text-sm text-muted-foreground">
+                            Define global subjects and codes for the department.
+                        </div>
+                        <Link href="/admin/subjects">
+                            <Button variant="outline" className="w-full justify-between mt-auto">
+                                Manage Subjects <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
                 {/* Faculty Groups Module */}
                 <Card className="hover:border-primary/50 transition-colors group cursor-pointer h-full flex flex-col justify-between">
                     <CardHeader className="pb-2">

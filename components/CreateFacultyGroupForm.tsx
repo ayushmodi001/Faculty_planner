@@ -16,6 +16,20 @@ export default function CreateFacultyGroupForm() {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
+
+    useEffect(() => {
+        const fetchSubjects = async () => {
+            try {
+                const res = await fetch('/api/admin/subjects');
+                const data = await res.json();
+                if (data.success) setAvailableSubjects(data.subjects);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchSubjects();
+    }, []);
 
     const handleAddSubject = () => {
         if (formData.currentSubject.trim() === '') return;
@@ -100,14 +114,16 @@ export default function CreateFacultyGroupForm() {
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground uppercase tracking-wider">Assigned Subjects</label>
                             <div className="flex gap-2 mb-3">
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Advanced Data Structures"
+                                <select
                                     className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
                                     value={formData.currentSubject}
                                     onChange={(e) => setFormData({ ...formData, currentSubject: e.target.value })}
-                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubject())}
-                                />
+                                >
+                                    <option value="" disabled>Select Subject</option>
+                                    {availableSubjects.map(sub => (
+                                        <option key={sub._id} value={sub.name}>{sub.name} ({sub.code})</option>
+                                    ))}
+                                </select>
                                 <Button
                                     type="button"
                                     variant="secondary"

@@ -20,6 +20,20 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
     const [formData, setFormData] = useState(initialData);
     const [currentSubject, setCurrentSubject] = useState('');
     const [loading, setLoading] = useState(false);
+    const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
+
+    useEffect(() => {
+        const fetchSubjects = async () => {
+            try {
+                const res = await fetch('/api/admin/subjects');
+                const data = await res.json();
+                if (data.success) setAvailableSubjects(data.subjects);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchSubjects();
+    }, []);
 
     const handleAddSubject = () => {
         if (currentSubject.trim() === '') return;
@@ -106,14 +120,16 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground uppercase tracking-wider">Assigned Subjects</label>
                             <div className="flex gap-2 mb-3">
-                                <input
-                                    type="text"
-                                    placeholder="Add Subject"
-                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm"
+                                <select
+                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     value={currentSubject}
                                     onChange={(e) => setCurrentSubject(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubject())}
-                                />
+                                >
+                                    <option value="" disabled>Select Subject to Add</option>
+                                    {availableSubjects.map(sub => (
+                                        <option key={sub._id} value={sub.name}>{sub.name} ({sub.code})</option>
+                                    ))}
+                                </select>
                                 <Button type="button" variant="secondary" onClick={handleAddSubject}>
                                     <Plus className="w-4 h-4" /> Add
                                 </Button>

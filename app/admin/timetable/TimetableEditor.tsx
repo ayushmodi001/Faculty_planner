@@ -58,20 +58,26 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
     }, [selectedGroupId]);
 
     const [facultyList, setFacultyList] = useState<{ name: string, email: string }[]>([]);
+    const [subjectList, setSubjectList] = useState<{ _id: string, name: string, code: string }[]>([]);
 
     useEffect(() => {
-        const fetchFaculty = async () => {
+        const fetchResources = async () => {
             try {
-                const res = await fetch('/api/admin/users/list?role=FACULTY');
-                const data = await res.json();
-                if (data.success) {
-                    setFacultyList(data.users);
-                }
+                // Fetch Faculty
+                const resFac = await fetch('/api/admin/users/list?role=FACULTY');
+                const dataFac = await resFac.json();
+                if (dataFac.success) setFacultyList(dataFac.users);
+
+                // Fetch Subjects
+                const resSub = await fetch('/api/admin/subjects');
+                const dataSub = await resSub.json();
+                if (dataSub.success) setSubjectList(dataSub.subjects);
+
             } catch (error) {
-                console.error("Failed to fetch faculty list", error);
+                console.error("Failed to fetch resources", error);
             }
         };
-        fetchFaculty();
+        fetchResources();
     }, []);
 
     const handleAddSlot = (day: string) => {
@@ -261,12 +267,16 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Input
-                                                className="h-7 text-xs"
-                                                placeholder="Subject (e.g. Mathematics)"
+                                            <select
+                                                className="w-full h-7 text-xs bg-background border border-input rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-ring"
                                                 value={slot.subject || ''}
                                                 onChange={(e) => handleUpdateSlot(day, idx, 'subject', e.target.value)}
-                                            />
+                                            >
+                                                <option value="" disabled>Select Subject</option>
+                                                {subjectList.map(s => (
+                                                    <option key={s._id} value={s.name}>{s.name} ({s.code})</option>
+                                                ))}
+                                            </select>
                                         </div>
 
                                         <div className="flex gap-2 items-center">
