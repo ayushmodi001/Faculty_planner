@@ -147,6 +147,33 @@ export default async function HODDashboard() {
                     </Card>
                 </Link>
 
+                {/* Card 5: Academic Calendar Link */}
+                <Link href="/dashboard/hod/calendar" className="group col-span-1 md:col-span-2 lg:col-span-1">
+                    <Card className="h-full border-none shadow-md bg-white rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300 ring-1 ring-[#C9C3A3]/30">
+                        <CardHeader className="pb-2">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="p-3 bg-[#283618]/10 rounded-2xl group-hover:bg-[#283618] transition-colors duration-300">
+                                    <CalendarRange className="w-6 h-6 text-[#283618] group-hover:text-white" />
+                                </div>
+                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#283618] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xl font-black text-[#283618] mt-2">Academic Calendar</div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-[#283618] bg-[#283618]/10 px-2 py-0.5 rounded-full">
+                                        VIEW ONLY
+                                    </span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-[#5C6836] font-medium leading-tight">
+                                View holidays, exams, and important term dates.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
             </div>
 
             {/* List Section - Faculty Overview (Real Data) */}
