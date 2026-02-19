@@ -18,9 +18,11 @@ export async function POST(req: NextRequest) {
 
         // 1. Find User (explicitly select passwordHash as it is excluded by default)
         // Ensure email is lowercased to match the schema's storage format
+        console.log(`[Login Attempt] Email: ${email.toLowerCase()}`);
         const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
 
         if (!user) {
+            console.log(`[Login Failed] User not found: ${email.toLowerCase()}`);
             return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
         }
 
@@ -30,7 +32,10 @@ export async function POST(req: NextRequest) {
 
         // 2. Verify Password
         const isMatch = await comparePassword(password, user.passwordHash);
+        console.log(`[Login Info] User found. Password match: ${isMatch}`);
+
         if (!isMatch) {
+            console.log(`[Login Failed] Password mismatch for user: ${email}`);
             return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
         }
 

@@ -57,6 +57,23 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
         fetchTimetable();
     }, [selectedGroupId]);
 
+    const [facultyList, setFacultyList] = useState<{ name: string, email: string }[]>([]);
+
+    useEffect(() => {
+        const fetchFaculty = async () => {
+            try {
+                const res = await fetch('/api/admin/users/list?role=FACULTY');
+                const data = await res.json();
+                if (data.success) {
+                    setFacultyList(data.users);
+                }
+            } catch (error) {
+                console.error("Failed to fetch faculty list", error);
+            }
+        };
+        fetchFaculty();
+    }, []);
+
     const handleAddSlot = (day: string) => {
         const newSlot: ISlot = { startTime: "09:00", endTime: "10:00", room: "LT-1", type: "Lecture" };
         setTimetable(prev => ({
@@ -253,12 +270,18 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                                         </div>
 
                                         <div className="flex gap-2 items-center">
-                                            <Input
-                                                className="h-7 text-xs flex-1"
-                                                placeholder="Faculty (e.g. Dr. Smith)"
-                                                value={slot.faculty || ''}
-                                                onChange={(e) => handleUpdateSlot(day, idx, 'faculty', e.target.value)}
-                                            />
+                                            <div className="flex-1">
+                                                <select
+                                                    className="w-full h-7 text-xs bg-background border border-input rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                                                    value={slot.faculty || ''}
+                                                    onChange={(e) => handleUpdateSlot(day, idx, 'faculty', e.target.value)}
+                                                >
+                                                    <option value="" disabled>Select Faculty</option>
+                                                    {facultyList.map(f => (
+                                                        <option key={f.email} value={f.name}>{f.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                             <Input
                                                 className="h-7 text-xs w-20"
                                                 placeholder="Room"

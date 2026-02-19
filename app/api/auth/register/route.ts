@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         const hashedPassword = await hashPassword(password);
 
         await User.create({
-            email,
+            email: email.toLowerCase(),
             passwordHash: hashedPassword,
             name,
             role,

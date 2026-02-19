@@ -1,0 +1,4 @@
+--- REGISTERED USERS ---
+Email: pietadmin@paruluniversity.ac.in | Role: PRINCIPAL | Name: Parul University
+Email: ayushmodi@paruluniveristy.ac.in | Role: HOD | Name: Ayush Modi
+Email: malavpatel@paruluniversity.ac.in | Role: FACULTY | Name: Malav Patel

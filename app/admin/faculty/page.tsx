@@ -50,7 +50,7 @@ export default async function FacultyPage() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
                         {groups.map((group) => (
-                            <Link key={group._id as string} href={`#${group._id}`}>
+                            <Link key={group._id as string} href={`/admin/faculty/${group._id}`}>
                                 <Card className="group hover:border-primary/50 transition-all duration-300 h-full cursor-pointer">
                                     <CardHeader className="pb-3">
                                         <div className="flex justify-between items-start">

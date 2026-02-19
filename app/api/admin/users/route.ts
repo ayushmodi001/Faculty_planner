@@ -55,8 +55,10 @@ export async function POST(req: NextRequest) {
 
         for (const user of usersToCreate) {
             try {
+                const normalizedEmail = user.email.toLowerCase();
+
                 // Check duplicate
-                const existing = await User.findOne({ email: user.email });
+                const existing = await User.findOne({ email: normalizedEmail });
                 if (existing) {
                     errors.push({ email: user.email, error: "User already exists" });
                     continue;
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
 
                 const newUser = await User.create({
                     ...user,
+                    email: normalizedEmail,
                     passwordHash: hashedPassword,
                     isActive: true,
                     department: session.role === UserRole.HOD ? session.department : user.department // If HOD, force dept? optional logic
