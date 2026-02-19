@@ -3,16 +3,76 @@ import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSu
 import { ArrowRight, Clock, MapPin, BookOpen, AlertCircle } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
+import { MapPin, Users2, Loader2, BookOpen, AlertCircle } from 'lucide-react';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { toast } from 'sonner';
+
+interface ILectureSlot {
+    id: string;
+    startTime: string;
+    endTime: string;
+    formattedTime: string;
+    subject: string;
+    groupName: string;
+    room: string;
+    topic: string;
+    isPlanActive: boolean;
+}
+
+interface IDashboardData {
+    facultyName: string;
+    date: string;
+    schedule: ILectureSlot[];
+}
+
 export default function FacultyDashboard() {
+    const [data, setData] = useState<IDashboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const res = await fetch('/api/faculty/dashboard');
+                if (!res.ok) throw new Error("Failed to load dashboard data");
+                const json = await res.json();
+                setData(json);
+            } catch (err) {
+                console.error(err);
+                toast.error("Could not load your schedule");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return (
+            <DashboardLayout role="Faculty">
+                <div className="flex items-center justify-center h-[60vh]">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    const lectures = data?.schedule || [];
+    const activeLecture = lectures[0]; // Simplified: First one is active/next
+
     return (
         <DashboardLayout role="Faculty">
             {/* Header Section */}
             <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 animate-in slide-in-from-bottom-5 duration-500">
                 <div className="max-w-2xl">
-                    <SwissSubHeading className="mb-2 text-primary">Your Schedule</SwissSubHeading>
-                    <SwissHeading className="text-4xl">Welcome back, Prof. Thorne</SwissHeading>
+                    <SwissSubHeading className="mb-2 text-primary">Your Schedule - {data?.date}</SwissSubHeading>
+                    <SwissHeading className="text-4xl">Welcome back, {data?.facultyName}</SwissHeading>
                     <p className="text-lg text-muted-foreground mt-2">
-                        You have <span className="font-bold text-foreground">3 lectures</span> scheduled for today.
+                        You have <span className="font-bold text-foreground">{lectures.length} lectures</span> scheduled for today.
                     </p>
                 </div>
                 <Button size="lg" className="shadow-lg shadow-primary/20">View Full Timetable</Button>
@@ -24,51 +84,56 @@ export default function FacultyDashboard() {
                 <div className="lg:col-span-2 space-y-6">
                     <SwissHeading className="text-2xl mb-4">Today's Lectures</SwissHeading>
 
-                    {/* Active Class Card */}
-                    <div className="relative pl-8 border-l-2 border-primary space-y-8">
-                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary ring-4 ring-primary/20"></div>
-
-                        <Card className="bg-primary text-primary-foreground border-none shadow-xl transform scale-[1.02] transition-transform">
-                            <CardHeader className="pb-2">
-                                <div className="flex justify-between items-start">
-                                    <Badge className="bg-white/20 text-white hover:bg-white/30 border-none">Now Active</Badge>
-                                    <span className="font-mono text-sm opacity-80">09:30 AM - 10:30 AM</span>
-                                </div>
-                                <CardTitle className="text-2xl mt-2">Data Structures & Algo</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center gap-4 text-sm opacity-90 mb-6">
-                                    <div className="flex items-center gap-1"><MapPin className="w-4 h-4" /> LH-102</div>
-                                    <div className="flex items-center gap-1"><Users2 className="w-4 h-4" /> CS-Sem3-A</div>
-                                </div>
-
-                                <div className="p-4 bg-white/10 rounded-lg border border-white/10">
-                                    <p className="text-xs uppercase tracking-wider font-bold opacity-70 mb-1">Today's Topic</p>
-                                    <p className="font-medium text-lg">Introduction to Red-Black Trees</p>
-                                </div>
+                    {lectures.length === 0 ? (
+                        <Card className="border-dashed">
+                            <CardContent className="py-10 text-center text-muted-foreground">
+                                No lectures scheduled for today. Enjoy your day!
                             </CardContent>
                         </Card>
+                    ) : (
+                        <div className="relative pl-8 border-l-2 border-primary space-y-8">
+                            {lectures.map((lecture, idx) => {
+                                const isFirst = idx === 0; // Highlight first as active for demo
+                                return (
+                                    <div key={lecture.id} className="relative">
+                                        <div className={`absolute -left-[41px] top-2 w-4 h-4 rounded-full border-2 ${isFirst ? 'bg-primary border-primary ring-4 ring-primary/20' : 'bg-muted border-muted-foreground'}`}></div>
 
-                        {/* Upcoming Class */}
-                        <div className="relative">
-                            <div className="absolute -left-[41px] top-2 w-4 h-4 rounded-full bg-muted border-2 border-muted-foreground"></div>
-                            <Card className="opacity-80 hover:opacity-100 transition-opacity">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start">
-                                        <Badge variant="secondary">Upcoming</Badge>
-                                        <span className="font-mono text-sm text-muted-foreground">11:15 AM - 12:15 PM</span>
+                                        <Card className={`${isFirst ? 'bg-primary text-primary-foreground shadow-xl transform scale-[1.02]' : 'opacity-90 hover:opacity-100'} transition-all`}>
+                                            <CardHeader className="pb-2">
+                                                <div className="flex justify-between items-start">
+                                                    <Badge className={isFirst ? "bg-white/20 text-white hover:bg-white/30 border-none" : "variant-secondary"}>
+                                                        {isFirst ? "Next / Active" : "Upcoming"}
+                                                    </Badge>
+                                                    <span className={`font-mono text-sm ${isFirst ? 'opacity-80' : 'text-muted-foreground'}`}>
+                                                        {lecture.formattedTime}
+                                                    </span>
+                                                </div>
+                                                <CardTitle className={`text-xl mt-2 ${!isFirst && 'text-foreground'}`}>
+                                                    {lecture.subject}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className={`flex items-center gap-4 text-sm mb-4 ${isFirst ? 'opacity-90' : 'text-muted-foreground'}`}>
+                                                    <div className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {lecture.room}</div>
+                                                    <div className="flex items-center gap-1"><Users2 className="w-4 h-4" /> {lecture.groupName}</div>
+                                                </div>
+
+                                                <div className={`p-4 rounded-lg border ${isFirst ? 'bg-white/10 border-white/10' : 'bg-muted/30 border-border'}`}>
+                                                    <p className={`text-xs uppercase tracking-wider font-bold mb-1 ${isFirst ? 'opacity-70' : 'text-muted-foreground'}`}>Today's Topic</p>
+                                                    <p className={`font-medium text-lg leading-snug ${!isFirst && 'text-foreground'}`}>
+                                                        {lecture.topic}
+                                                    </p>
+                                                    {!lecture.isPlanActive && lecture.topic !== "No topic scheduled for today" && (
+                                                        <p className="text-xs mt-2 italic opacity-70">(Syllabus plan not generated yet)</p>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     </div>
-                                    <CardTitle className="text-xl mt-2">Operating Systems Code</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                        <div className="flex items-center gap-1"><MapPin className="w-4 h-4" /> LAB-3</div>
-                                        <div className="flex items-center gap-1"><Users2 className="w-4 h-4" /> CS-Sem5-B</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                );
+                            })}
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Right Sidebar */}
@@ -103,7 +168,7 @@ export default function FacultyDashboard() {
                     <div className="p-6 bg-slate-100 rounded-xl border border-slate-200 mt-8">
                         <h4 className="font-bold text-slate-800 mb-2">Did you know?</h4>
                         <p className="text-sm text-slate-600 leading-relaxed">
-                            The AI engine has optimized your schedule to free up Thursday afternoons for research work based on your preferences.
+                            The AI engine has optimized your schedule to free up Thursday afternoons based on your preferences.
                         </p>
                     </div>
                 </div>
