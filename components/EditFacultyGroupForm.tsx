@@ -90,13 +90,17 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                 body: JSON.stringify(formData)
             });
 
-            if (!res.ok) throw new Error("Failed to update");
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Failed to update");
+            }
 
             toast.success("Group Updated Successfully");
             router.push('/admin/faculty');
             router.refresh();
-        } catch (error) {
-            toast.error("Error updating group");
+        } catch (error: any) {
+            console.error("Update Error:", error);
+            toast.error(error.message || "Error updating group");
         } finally {
             setLoading(false);
         }
