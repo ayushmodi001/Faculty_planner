@@ -8,7 +8,8 @@ const SlotSchema = z.object({
     endTime: z.string(),
     room: z.string().optional(),
     subject: z.string().optional(),
-    type: z.enum(['Lecture', 'Lab', 'Break']).default('Lecture')
+    faculty: z.string().optional(),
+    type: z.enum(['Lecture', 'Lab', 'Break', 'Self Study', 'Project']).default('Lecture')
 });
 
 const TimetableUpdateSchema = z.object({
@@ -17,49 +18,82 @@ const TimetableUpdateSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-    await dbConnect();
-    const { searchParams } = new URL(req.url);
-    const facultyGroupId = searchParams.get('id');
+    try {
+        await dbConnect();
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get('id');
 
-    if (!facultyGroupId) {
-        return NextResponse.json({ error: 'Group ID required' }, { status: 400 });
+        if (!id) {
+            return NextResponse.json({ error: "Group ID required" }, { status: 400 });
+        }
+
+        const group = await FacultyGroup.findById(id).lean();
+        if (!group) {
+            return NextResponse.json({ error: "Group not found" }, { status: 404 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            timetable: group.timetable
+        });
+
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    const group = await FacultyGroup.findById(facultyGroupId).lean();
-    if (!group) {
-        return NextResponse.json({ error: 'Group not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({
-        success: true,
-        timetable: group.timetable || {}
-    });
 }
 
 export async function POST(req: NextRequest) {
     try {
         await dbConnect();
         const body = await req.json();
+        const validation = TimetableUpdateSchema.safeParse(body);
 
-        const { facultyGroupId, timetable } = TimetableUpdateSchema.parse(body);
-
-        const group = await FacultyGroup.findByIdAndUpdate(
-            facultyGroupId,
-            { $set: { timetable: timetable } },
-            { new: true }
-        );
-
-        if (!group) {
-            return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+        if (!validation.success) {
+            return NextResponse.json({ error: "Invalid Data", details: validation.error }, { status: 400 });
         }
 
-        return NextResponse.json({ success: true, group });
+        const { facultyGroupId, timetable } = validation.data;
+
+        await FacultyGroup.findByIdAndUpdate(facultyGroupId, {
+            $set: { timetable: timetable }
+        });
+
+        return NextResponse.json({ success: true, message: "Timetable updated" });
 
     } catch (error: any) {
-        console.error("Timetable Update Error:", error);
-        return NextResponse.json(
-            { error: error.message || "Internal Server Error" },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    try {
+        await dbConnect();
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ error: "Group ID required" }, { status: 400 });
+        }
+
+        // Clear the timetable (set to empty object or structure with empty arrays)
+        // We set it to default empty structure for consistency
+        const defaults: any = {};
+        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].forEach(d => defaults[d] = []);
+
+        const group = await FacultyGroup.findByIdAndUpdate(id, {
+            $set: { timetable: defaults }
+        }, { new: true });
+
+        if (!group) {
+            return NextResponse.json({ error: "Group not found" }, { status: 404 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: "Timetable cleared"
+        });
+
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

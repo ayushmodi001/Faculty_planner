@@ -139,6 +139,31 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
         window.open('/api/admin/timetable/download', '_blank');
     };
 
+    const handleClear = async () => {
+        if (!selectedGroupId) return;
+        if (!confirm("Are you sure you want to clear the ENTIRE timetable for this class? This cannot be undone.")) return;
+
+        setIsSaving(true);
+        try {
+            const res = await fetch(`/api/admin/timetable?id=${selectedGroupId}`, {
+                method: 'DELETE'
+            });
+
+            if (!res.ok) throw new Error("Clear failed");
+
+            // Allow state to clear
+            const defaults: any = {};
+            DAYS.forEach(d => defaults[d] = []);
+            setTimetable(defaults);
+
+            toast.success("Timetable Cleared!");
+        } catch (err) {
+            toast.error("Error clearing timetable");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <Card>
@@ -259,10 +284,16 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
 
             {selectedGroupId && (
                 <div className="fixed bottom-6 right-6 z-50">
-                    <Button size="lg" className="shadow-xl" onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                        Save Timetable
-                    </Button>
+                    <div className="flex gap-2 shadow-xl">
+                        <Button variant="destructive" size="lg" onClick={handleClear} disabled={isSaving}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Clear
+                        </Button>
+                        <Button size="lg" onClick={handleSave} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            Save Timetable
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>

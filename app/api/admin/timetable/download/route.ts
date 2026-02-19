@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
                             const parts = [
                                 group.name,
                                 slot.subject || 'SUB',
-                                slot.facultyCode || 'FAC',
+                                slot.faculty || slot.facultyCode || 'FAC',
                                 slot.room || ''
                             ];
                             // Filter empty parts if room is missing? No, keep structure
