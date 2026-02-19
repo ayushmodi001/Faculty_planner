@@ -15,7 +15,7 @@ export default function UserManagementPage() {
 
     // Single User State
     const [singleUser, setSingleUser] = useState({
-        name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: ''
+        name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR'
     });
 
     // Bulk User State
@@ -38,7 +38,7 @@ export default function UserManagementPage() {
             if (!res.ok) throw new Error(data.error || "Failed to create user");
 
             toast.success("User Created", { description: `${singleUser.name} added successfully.` });
-            setSingleUser({ name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '' }); // Reset
+            setSingleUser({ name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR' }); // Reset
         } catch (err: any) {
             toast.error("Error", { description: err.message });
         } finally {
@@ -77,7 +77,8 @@ export default function UserManagementPage() {
                 password: row.Password || row.password || 'Welcome123', // Default if missing
                 role: (row.Role || row.role || 'FACULTY').toUpperCase(),
                 department: row.Department || row.department,
-                mobile: String(row.Mobile || row.mobile || '')
+                mobile: String(row.Mobile || row.mobile || ''),
+                facultyType: (row.Type || row.type || row["Faculty Type"] || 'JUNIOR').toUpperCase()
             }));
 
             const res = await fetch('/api/admin/users', {
@@ -165,6 +166,24 @@ export default function UserManagementPage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {singleUser.role === 'FACULTY' && (
+                                        <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                            <label className="text-sm font-medium">Faculty Type</label>
+                                            <Select
+                                                value={singleUser.facultyType}
+                                                onValueChange={val => setSingleUser({ ...singleUser, facultyType: val })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="JUNIOR">Junior Faculty</SelectItem>
+                                                    <SelectItem value="SENIOR">Senior Faculty</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Department</label>
                                         <Input

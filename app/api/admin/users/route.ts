@@ -10,7 +10,8 @@ const userSchema = z.object({
     name: z.string().min(2),
     role: z.nativeEnum(UserRole),
     department: z.string().optional(),
-    mobile: z.string().optional()
+    mobile: z.string().optional(),
+    facultyType: z.enum(['JUNIOR', 'SENIOR']).optional()
 });
 
 const bulkUserSchema = z.array(userSchema);
