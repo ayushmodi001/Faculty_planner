@@ -4,9 +4,10 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import FacultyGroup from '@/models/FacultyGroup';
 import AcademicCalendar from '@/models/AcademicCalendar';
+import CalendarEvent from '@/models/CalendarEvent';
 import Plan from '@/models/Plan';
 import { calculateAvailableSlots } from '@/utils/availability';
-import { AIPlanResponseSchema } from '@/models/AIOutputSchema';
+import { AIPlanResponseSchema } from '../../../models/AIOutputSchema';
 import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
 
 // Initialize OpenRouter (OpenAI compatible SDK)
@@ -57,8 +58,18 @@ export async function POST(req: NextRequest) {
             };
         }
 
+        // Fetch dynamic holidays from CalendarEvent system (Admin managed)
+        const dynamicHolidayEvents = await CalendarEvent.find({ type: 'HOLIDAY' }).lean();
+        const dynamicHolidays = dynamicHolidayEvents.map(e => e.date);
+        console.log(`[Planner] Found ${dynamicHolidays.length} dynamic holidays.`);
+
         // Debug: Check timetable structure
         console.log(`[Planner] Faculty Group: ${facultyGroup.name}, Timetable keys: ${Object.keys(facultyGroup.timetable || {}).join(', ')}`);
+
+        // Check for term validity
+        if (facultyGroup.termStartDate && new Date(startDate) < new Date(facultyGroup.termStartDate)) {
+            console.warn(`[Planner] Warning: Requested start date ${startDate} is before term start ${facultyGroup.termStartDate}`);
+        }
 
         // 3. Deterministic Availability Calculation
         // This tells us exactly how many slots we have (The "Budget")
@@ -67,14 +78,16 @@ export async function POST(req: NextRequest) {
             new Date(endDate),
             facultyGroup as any, // Cast because lean() type might be slightly different than Document interface
             calendar as any,
-            subject // Pass subject for filtering
+            subject, // Pass subject for filtering
+            dynamicHolidays // Pass dynamic holidays
         );
 
         console.log(`[Planner] Calculated Total Slots: ${totalSlots} between ${startDate} and ${endDate}`);
 
         if (totalSlots === 0) {
+            const hasTermDates = facultyGroup.termStartDate || facultyGroup.termEndDate;
             return NextResponse.json({
-                error: `No available slots found. Check if the Faculty Group has a timetable for the requested days (${startDate} to ${endDate}).`
+                error: `No available slots found. Check if the Faculty Group has a timetable for the requested days (${startDate} to ${endDate}), or if the dates fall outside the configured Term (${facultyGroup.termStartDate ? new Date(facultyGroup.termStartDate).toLocaleDateString() : 'N/A'} - ${facultyGroup.termEndDate ? new Date(facultyGroup.termEndDate).toLocaleDateString() : 'N/A'}).`
             }, { status: 400 });
         }
 
@@ -145,7 +158,7 @@ export async function POST(req: NextRequest) {
                 finalTopics.push({
                     name: topic.title,
                     original_duration_mins: topic.duration_mins,
-                    lecture_sequence: topic.sequence_order,
+                    lecture_sequence: topic.sequence_order || (finalTopics.length + 1),
                     is_split: false, // AI output schema has is_split but we can default
                     priority: 'SELF_STUDY',
                     completion_status: 'PENDING',
@@ -158,7 +171,7 @@ export async function POST(req: NextRequest) {
                     finalTopics.push({
                         name: topic.title,
                         original_duration_mins: topic.duration_mins,
-                        lecture_sequence: topic.sequence_order,
+                        lecture_sequence: topic.sequence_order || (finalTopics.length + 1),
                         is_split: false,
                         priority: 'CORE',
                         completion_status: 'PENDING',
@@ -170,7 +183,7 @@ export async function POST(req: NextRequest) {
                     finalTopics.push({
                         name: topic.title,
                         original_duration_mins: topic.duration_mins,
-                        lecture_sequence: topic.sequence_order,
+                        lecture_sequence: topic.sequence_order || (finalTopics.length + 1),
                         priority: 'SELF_STUDY', // Force to self study
                         completion_status: 'PENDING',
                         notes: "Forced self-study due to slot overflow"

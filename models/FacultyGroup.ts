@@ -14,6 +14,8 @@ export interface IFacultyGroup extends Document {
     subjects: string[];
     members?: string[];
     timetable: Map<string, ISlot[]>; // Key: "Monday" -> Slots
+    termStartDate?: Date;
+    termEndDate?: Date;
 }
 
 const SlotSchema = new Schema<ISlot>({
@@ -35,6 +37,8 @@ const FacultyGroupSchema = new Schema<IFacultyGroup>(
             of: [SlotSchema],
             default: {},
         },
+        termStartDate: { type: Date },
+        termEndDate: { type: Date },
     },
     { timestamps: true }
 );

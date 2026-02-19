@@ -49,6 +49,44 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
 
+    // New Fields State
+    const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+    const [availableMembers, setAvailableMembers] = useState<string[]>([]);
+    const [facultyName, setFacultyName] = useState("");
+    const [isParsing, setIsParsing] = useState(false);
+
+    const handleGroupChange = (value: string) => {
+        setSelectedGroupId(value);
+        const group = facultyGroups.find(g => g._id === value);
+        if (group) {
+            setAvailableSubjects(group.subjects || []);
+            setAvailableMembers(group.members || []);
+            setSubject("");
+            setFacultyName("");
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsParsing(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/parse-syllabus', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error("Failed to parse file");
+            const data = await res.json();
+            setSyllabusText(data.text);
+            toast.success("Syllabus Uploaded", { description: "Text extracted successfully." });
+        } catch (err) {
+            toast.error("Upload Failed", { description: "Could not extract text from file." });
+        } finally {
+            setIsParsing(false);
+        }
+    };
+
     // Fetch plan when group changes in read-only mode
     useEffect(() => {
         if (readOnly && selectedGroupId) {
@@ -162,89 +200,122 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                     </CardHeader>
                     <CardContent className="space-y-6">
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Faculty Group</label>
-                            <Select onValueChange={setSelectedGroupId} value={selectedGroupId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a group to view..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {facultyGroups.length === 0 ? (
-                                        <div className="p-2 text-sm text-muted-foreground">No groups found</div>
-                                    ) : (
-                                        facultyGroups.map(group => (
-                                            <SelectItem key={group._id as string} value={group._id as string}>
-                                                {group.name}
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            {readOnly && !selectedGroupId && <p className="text-xs text-muted-foreground">Select a group to load its active plan.</p>}
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Faculty Group</label>
+                                <Select onValueChange={handleGroupChange} value={selectedGroupId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a group..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {facultyGroups.length === 0 ? (
+                                            <div className="p-2 text-sm text-muted-foreground">No groups found</div>
+                                        ) : (
+                                            facultyGroups.map(group => (
+                                                <SelectItem key={group._id as string} value={group._id as string}>
+                                                    {group.name}
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {!readOnly && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Faculty Name</label>
+                                        <Select disabled={!selectedGroupId} value={facultyName} onValueChange={setFacultyName}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Faculty Member" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableMembers.length > 0 ? (
+                                                    availableMembers.map(member => (
+                                                        <SelectItem key={member} value={member}>{member}</SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-2 text-xs text-muted-foreground">No members listed</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Subject</label>
+                                        <Select disabled={!selectedGroupId} value={subject} onValueChange={setSubject}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Subject" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableSubjects.length > 0 ? (
+                                                    availableSubjects.map(subj => (
+                                                        <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-2 text-xs text-muted-foreground">No subjects listed</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Start Date</label>
+                                            <Input
+                                                type="date"
+                                                value={startDate}
+                                                onChange={(e) => setStartDate(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">End Date</label>
+                                            <Input
+                                                type="date"
+                                                value={endDate}
+                                                onChange={(e) => setEndDate(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Syllabus</label>
+                                        <div className="flex flex-col gap-2">
+                                            <Input
+                                                type="file"
+                                                accept=".pdf,.txt"
+                                                onChange={handleFileUpload}
+                                                className="cursor-pointer bg-muted/20"
+                                            />
+                                            {isParsing && <p className="text-xs text-muted-foreground animate-pulse">Parsing file...</p>}
+                                            <Textarea
+                                                placeholder="Or paste syllabus text here..."
+                                                className="min-h-[150px] font-mono text-sm resize-none"
+                                                value={syllabusText}
+                                                onChange={(e) => setSyllabusText(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        className="w-full"
+                                        size="lg"
+                                        onClick={handleGenerate}
+                                        disabled={isGenerating || isParsing || !selectedGroupId || !syllabusText || !subject}
+                                    >
+                                        {isGenerating ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Plan...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Wand2 className="mr-2 h-4 w-4" /> Generate Schedule
+                                            </>
+                                        )}
+                                    </Button>
+                                </>
+                            )}
                         </div>
-
-                        {!readOnly && (
-                            <>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Subject Name</label>
-                                    <Input
-                                        placeholder="e.g. Data Structures"
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                        disabled={readOnly}
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Start Date</label>
-                                        <Input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            disabled={readOnly}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">End Date</label>
-                                        <Input
-                                            type="date"
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            disabled={readOnly}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Syllabus Content</label>
-                                    <Textarea
-                                        placeholder="Paste the full syllabus text here..."
-                                        className="min-h-[200px] font-mono text-sm resize-none"
-                                        value={syllabusText}
-                                        onChange={(e) => setSyllabusText(e.target.value)}
-                                        disabled={readOnly}
-                                    />
-                                </div>
-
-                                <Button
-                                    className="w-full"
-                                    size="lg"
-                                    onClick={handleGenerate}
-                                    disabled={isGenerating || !selectedGroupId || !syllabusText || !subject || !startDate || !endDate}
-                                >
-                                    {isGenerating ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Plan...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Wand2 className="mr-2 h-4 w-4" /> Generate Schedule
-                                        </>
-                                    )}
-                                </Button>
-                            </>
-                        )}
 
                         {readOnly && selectedGroupId && (
                             <div className="bg-muted/30 p-4 rounded-lg text-sm text-center text-muted-foreground">

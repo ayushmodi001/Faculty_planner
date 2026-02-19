@@ -19,7 +19,8 @@ export function calculateAvailableSlots(
     endDate: Date,
     facultyGroup: IFacultyGroup,
     calendar: IAcademicCalendar,
-    subjectFilter?: string
+    subjectFilter?: string,
+    additionalHolidays?: Date[]
 ): { totalSlots: number; schedule: DaySchedule[] } {
 
     const allDates = eachDayOfInterval({ start: startDate, end: endDate });
@@ -28,7 +29,10 @@ export function calculateAvailableSlots(
 
     // Convert DB types to handy sets/lookups
     const holidays = new Set(
-        calendar.holidays.map((h) => new Date(h.date).toISOString().split('T')[0])
+        [
+            ...calendar.holidays.map((h) => new Date(h.date).toISOString().split('T')[0]),
+            ...(additionalHolidays || []).map((d) => new Date(d).toISOString().split('T')[0])
+        ]
     );
 
     const overrides = new Set(
@@ -45,7 +49,15 @@ export function calculateAvailableSlots(
     const normalize = (s: string) => s ? s.trim().toLowerCase() : '';
     const targetSubject = normalize(subjectFilter || '');
 
+    // Parse term dates if available
+    const termStart = facultyGroup.termStartDate ? new Date(facultyGroup.termStartDate) : null;
+    const termEnd = facultyGroup.termEndDate ? new Date(facultyGroup.termEndDate) : null;
+
     for (const date of allDates) {
+        // 0. Check Term Validity (Timetable Expiry)
+        if (termStart && date < termStart) continue;
+        if (termEnd && date > termEnd) continue;
+
         const dateStr = format(date, 'yyyy-MM-dd');
         const dayOfWeek = format(date, 'EEEE'); // "Monday", "Tuesday"...
 
