@@ -16,7 +16,10 @@ const CreateFacultyGroupSchema = z.object({
         z.array(z.object({
             startTime: z.string(),
             endTime: z.string(),
-            room: z.string().optional()
+            room: z.string().optional(),
+            subject: z.string().optional(),
+            faculty: z.string().optional(),
+            type: z.string().optional()
         }))
     ).optional()
 });
