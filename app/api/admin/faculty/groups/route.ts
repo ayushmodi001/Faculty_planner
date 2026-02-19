@@ -30,7 +30,8 @@ export async function PUT(req: NextRequest) {
 
         const updated = await FacultyGroup.findByIdAndUpdate(id, {
             name: body.name,
-            subjects: body.subjects
+            subjects: body.subjects,
+            members: body.members
         }, { new: true });
 
         return NextResponse.json({ success: true, group: updated });

@@ -11,7 +11,7 @@ interface EditFacultyGroupFormProps {
     groupId: string;
     initialData: {
         name: string;
-        name: string;
+
         subjects: string[];
         members?: string[];
     };
