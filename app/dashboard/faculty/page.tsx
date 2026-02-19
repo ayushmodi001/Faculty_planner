@@ -1,13 +1,8 @@
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
-import { ArrowRight, Clock, MapPin, BookOpen, AlertCircle } from 'lucide-react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
-import { MapPin, Users2, Loader2, BookOpen, AlertCircle } from 'lucide-react';
+import { MapPin, Loader2, BookOpen, AlertCircle } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { toast } from 'sonner';
 
