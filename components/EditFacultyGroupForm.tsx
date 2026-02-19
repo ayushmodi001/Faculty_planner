@@ -194,7 +194,7 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
 
                             <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
                                 {(formData.members || []).map((fac, idx) => (
-                                    <Badge variant="secondary" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-background border">
+                                    <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-background border text-foreground">
                                         {fac}
                                         <button type="button" onClick={() => removeFaculty(idx)} className="hover:bg-primary/90 hover:text-white rounded-full p-0.5">
                                             <X className="w-3 h-3" />
