@@ -174,6 +174,39 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                             </div>
                         </div>
 
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Faculties</label>
+                            <div className="flex gap-2 mb-3">
+                                <select
+                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    value={currentFaculty}
+                                    onChange={(e) => setCurrentFaculty(e.target.value)}
+                                >
+                                    <option value="" disabled>Select Faculty to Add</option>
+                                    {availableFaculties.map(fac => (
+                                        <option key={fac.email} value={fac.name}>{fac.name}</option>
+                                    ))}
+                                </select>
+                                <Button type="button" variant="secondary" onClick={handleAddFaculty}>
+                                    <Plus className="w-4 h-4" /> Add
+                                </Button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
+                                {(formData.members || []).map((fac, idx) => (
+                                    <Badge variant="secondary" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-background border">
+                                        {fac}
+                                        <button type="button" onClick={() => removeFaculty(idx)} className="hover:bg-primary/90 hover:text-white rounded-full p-0.5">
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                                {(formData.members || []).length === 0 && (
+                                    <span className="text-sm text-muted-foreground italic w-full text-center">No faculties assigned.</span>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="pt-6 flex gap-4">
                             <Button type="button" variant="destructive" onClick={handleDelete} disabled={loading}>
                                 <Trash2 className="w-4 h-4 mr-2" /> Delete Group
