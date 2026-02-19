@@ -50,8 +50,12 @@ export async function GET(req: NextRequest) {
             const sortedTimes = Array.from(timeSlotsSet).sort();
 
             // Build Rows
+            // Build Rows - Multi-line approach for better readability without text wrapping
             sortedTimes.forEach(timeRange => {
-                const row: string[] = [timeRange];
+                const rowSubject: string[] = [timeRange]; // Line 1: Time + Subjects
+                const rowFaculty: string[] = [""];       // Line 2: Empty Time + Faculty names
+                const rowRoom: string[] = [""];          // Line 3: Empty Time + Room numbers
+
                 const [start, end] = timeRange.split('-');
 
                 days.forEach(day => {
@@ -59,43 +63,41 @@ export async function GET(req: NextRequest) {
                     const lookupDay = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
 
                     // Find slot for this day and time
-                    // Check both Title Case and Upper Case to be safe
                     const daySlots = timetable[lookupDay] || timetable[day] || [];
-
-                    // console.log(`Checking ${day} (${lookupDay}) at ${start}-${end}. Slots:`, daySlots.length);
-
                     const slot = daySlots.find((s: any) => s.startTime === start && s.endTime === end);
 
                     if (slot) {
-                        // Reconstruct Format: Class:Subject:Faculty:Room
-                        // e.g. 7CSE1:HPC:VT:N-204
-                        // Use group.name as Class prefix
-                        // If type is Break/Lunch/SelfStudy, just use Type
                         if (slot.type === 'Break' || slot.type === 'Lunch') {
-                            row.push("LUNCH BREAK");
+                            rowSubject.push("LUNCH BREAK");
+                            rowFaculty.push("");
+                            rowRoom.push("");
                         } else if (slot.type === 'Self Study') {
-                            row.push("LIBRARY / SELF STUDY");
+                            rowSubject.push("LIBRARY / SELF STUDY");
+                            rowFaculty.push("");
+                            rowRoom.push("");
                         } else {
-                            const parts = [
-                                group.name,
-                                slot.subject || 'SUB',
-                                slot.faculty || slot.facultyCode || 'FAC',
-                                slot.room || ''
-                            ];
-                            // Filter empty parts if room is missing? No, keep structure
-                            row.push(parts.join(':'));
+                            // Split data across 3 rows
+                            rowSubject.push(slot.subject || '-');
+                            rowFaculty.push(slot.faculty || '-');
+                            rowRoom.push(slot.room || '-');
                         }
                     } else {
-                        row.push("");
+                        rowSubject.push("");
+                        rowFaculty.push("");
+                        rowRoom.push("");
                     }
                 });
-                wsData.push(row);
-            });
 
+                // Add the 3 rows for restart slot
+                wsData.push(rowSubject);
+                wsData.push(rowFaculty);
+                wsData.push(rowRoom);
+                // Optional: Add an empty separator row strictly for visual spacing, but 3 rows per slot is standard enough.
+            });
             const worksheet = XLSX.utils.aoa_to_sheet(wsData);
 
-            // simple col widths
-            worksheet['!cols'] = [{ wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }];
+            // simpler col widths - slightly wider for subject names
+            worksheet['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 30 }];
 
             XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
         });
