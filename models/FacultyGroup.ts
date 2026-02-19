@@ -9,6 +9,7 @@ export interface ISlot {
 export interface IFacultyGroup extends Document {
     name: string;
     subjects: string[];
+    members?: string[];
     timetable: Map<string, ISlot[]>; // Key: "Monday" -> Slots
 }
 
@@ -22,6 +23,7 @@ const FacultyGroupSchema = new Schema<IFacultyGroup>(
     {
         name: { type: String, required: true, unique: true },
         subjects: [{ type: String }],
+        members: [{ type: String }], // Array of Faculty Names
         timetable: {
             type: Map,
             of: [SlotSchema],

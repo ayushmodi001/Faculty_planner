@@ -26,7 +26,8 @@ export default async function EditFacultyPage({ params }: { params: Promise<{ id
                 groupId={id}
                 initialData={{
                     name: group.name,
-                    subjects: group.subjects
+                    subjects: group.subjects,
+                    members: group.members || []
                 }}
             />
         </DashboardLayout>

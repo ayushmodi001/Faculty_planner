@@ -11,7 +11,9 @@ interface EditFacultyGroupFormProps {
     groupId: string;
     initialData: {
         name: string;
+        name: string;
         subjects: string[];
+        members?: string[];
     };
 }
 
@@ -21,18 +23,24 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
     const [currentSubject, setCurrentSubject] = useState('');
     const [loading, setLoading] = useState(false);
     const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
+    const [availableFaculties, setAvailableFaculties] = useState<{ name: string, email: string }[]>([]);
+    const [currentFaculty, setCurrentFaculty] = useState('');
 
     useEffect(() => {
-        const fetchSubjects = async () => {
+        const fetchResources = async () => {
             try {
                 const res = await fetch('/api/admin/subjects');
                 const data = await res.json();
                 if (data.success) setAvailableSubjects(data.subjects);
+
+                const resFac = await fetch('/api/admin/users/list?role=FACULTY');
+                const dataFac = await resFac.json();
+                if (dataFac.success) setAvailableFaculties(dataFac.users);
             } catch (err) {
                 console.error(err);
             }
         };
-        fetchSubjects();
+        fetchResources();
     }, []);
 
     const handleAddSubject = () => {
@@ -48,6 +56,25 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
         setFormData(prev => ({
             ...prev,
             subjects: prev.subjects.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleAddFaculty = () => {
+        if (currentFaculty.trim() === '') return;
+        // Check duplicates
+        if (formData.members?.includes(currentFaculty)) return;
+
+        setFormData(prev => ({
+            ...prev,
+            members: [...(prev.members || []), currentFaculty.trim()]
+        }));
+        setCurrentFaculty('');
+    };
+
+    const removeFaculty = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            members: (prev.members || []).filter((_, i) => i !== index)
         }));
     };
 

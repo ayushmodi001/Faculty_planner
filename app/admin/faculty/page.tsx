@@ -55,7 +55,7 @@ export default async function FacultyPage() {
                                     <CardHeader className="pb-3">
                                         <div className="flex justify-between items-start">
                                             <Badge variant="default" className="mb-2 opacity-90 group-hover:opacity-100 transition-opacity">
-                                                {group.subjects.length} Subjects
+                                                {group.subjects.length} Subjects • {group.members?.length || 0} Faculty
                                             </Badge>
                                             <Users className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                         </div>

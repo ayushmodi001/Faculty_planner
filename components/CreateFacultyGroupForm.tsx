@@ -12,23 +12,32 @@ export default function CreateFacultyGroupForm() {
     const [formData, setFormData] = useState({
         name: '',
         currentSubject: '',
-        subjects: [] as string[]
+        subjects: [] as string[],
+        currentFaculty: '',
+        members: [] as string[]
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
+    const [availableFaculties, setAvailableFaculties] = useState<{ name: string, email: string }[]>([]);
 
     useEffect(() => {
-        const fetchSubjects = async () => {
+        const fetchResources = async () => {
             try {
-                const res = await fetch('/api/admin/subjects');
-                const data = await res.json();
-                if (data.success) setAvailableSubjects(data.subjects);
+                // Fetch Subjects
+                const resSub = await fetch('/api/admin/subjects');
+                const dataSub = await resSub.json();
+                if (dataSub.success) setAvailableSubjects(dataSub.subjects);
+
+                // Fetch Faculty
+                const resFac = await fetch('/api/admin/users/list?role=FACULTY');
+                const dataFac = await resFac.json();
+                if (dataFac.success) setAvailableFaculties(dataFac.users);
             } catch (err) {
                 console.error(err);
             }
         };
-        fetchSubjects();
+        fetchResources();
     }, []);
 
     const handleAddSubject = () => {
@@ -47,6 +56,23 @@ export default function CreateFacultyGroupForm() {
         }));
     };
 
+    const handleAddFaculty = () => {
+        if (formData.currentFaculty.trim() === '') return;
+        if (formData.members.includes(formData.currentFaculty)) return;
+        setFormData(prev => ({
+            ...prev,
+            members: [...prev.members, prev.currentFaculty],
+            currentFaculty: ''
+        }));
+    };
+
+    const removeFaculty = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            members: prev.members.filter((_, i) => i !== index)
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.subjects.length === 0) {
@@ -59,7 +85,8 @@ export default function CreateFacultyGroupForm() {
 
         const result = await createFacultyGroup({
             name: formData.name,
-            subjects: formData.subjects
+            subjects: formData.subjects,
+            members: formData.members
             // Timetable will be handled in a separate step
         });
 
