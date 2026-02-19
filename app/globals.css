@@ -29,109 +29,108 @@
 
 :root {
   /* Stitch Project Theme: 'UAPS Earth' */
-  /* Earth Tone Palette based on user request */
+  /* Earth Tone Palette - Exact Hex Codes */
 
-  /* ~Black Forest #283618 -> oklch(0.226 0.061 128.5) */
-  /* ~Olive Leaf #5C6836 -> oklch(0.438 0.088 123.6) */
-  /* ~Dry Sage #C9C3A3 -> oklch(0.793 0.057 101.4) */
-  /* ~Faded Copper #A6835B -> oklch(0.583 0.089 69.8) */
-  /* ~Brown Bark #694525 -> oklch(0.335 0.076 58.7) */
+  /* ~Black Forest #283618 */
+  /* ~Olive Leaf #5C6836 */
+  /* ~Dry Sage #C9C3A3 */
+  /* ~Faded Copper #A6835B */
+  /* ~Brown Bark #694525 */
 
-  --card: oklch(0.99 0.005 101);
-  --card-foreground: oklch(0.226 0.061 128.5);
+  /* Light Theme - Clean, Organic, Paper-like */
+  --background: #FEFAE0;
+  /* Light Cream (added for better contrast than white) */
+  --foreground: #283618;
   /* Black Forest */
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.226 0.061 128.5);
+  --card: #FFFFFF;
+  --card-foreground: #283618;
 
-  --primary: oklch(0.226 0.061 128.5);
+  --popover: #FFFFFF;
+  --popover-foreground: #283618;
+
+  --primary: #283618;
   /* Black Forest */
-  --primary-foreground: oklch(0.97 0.01 101);
-  /* Light Beige */
+  --primary-foreground: #FEFAE0;
 
-  --secondary: oklch(0.438 0.088 123.6);
+  --secondary: #5C6836;
   /* Olive Leaf */
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-foreground: #FFFFFF;
 
-  --muted: oklch(0.94 0.02 101);
-  /* Very light sage */
-  --muted-foreground: oklch(0.438 0.088 123.6);
-  /* Olive Leaf */
+  --muted: #E9E5D0;
+  /* Light Sage/Beige mix */
+  --muted-foreground: #5C6836;
 
-  --accent: oklch(0.583 0.089 69.8);
+  --accent: #A6835B;
   /* Faded Copper */
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: #FFFFFF;
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: #BC4749;
+  /* Soft Red that matches earth tones */
+  --destructive-foreground: #FFFFFF;
 
-  --border: oklch(0.793 0.057 101.4);
+  --border: #C9C3A3;
   /* Dry Sage */
-  --input: oklch(0.793 0.057 101.4);
-  --ring: oklch(0.438 0.088 123.6);
+  --input: #C9C3A3;
+  --ring: #5C6836;
 
   --radius: 0.5rem;
 
-  --background: oklch(0.985 0.005 101);
-  /* Slightly warm off-white */
-  --foreground: oklch(0.226 0.061 128.5);
-  /* Black Forest */
-
-  --sidebar: oklch(0.96 0.01 101);
-  --sidebar-foreground: oklch(0.226 0.061 128.5);
-  --sidebar-primary: oklch(0.226 0.061 128.5);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.793 0.057 101.4);
-  /* Dry Sage */
-  --sidebar-accent-foreground: oklch(0.226 0.061 128.5);
-  --sidebar-border: oklch(0.793 0.057 101.4);
-  --sidebar-ring: oklch(0.438 0.088 123.6);
+  --sidebar: #FEFAE0;
+  --sidebar-foreground: #283618;
+  --sidebar-primary: #283618;
+  --sidebar-primary-foreground: #FEFAE0;
+  --sidebar-accent: #C9C3A3;
+  --sidebar-accent-foreground: #283618;
+  --sidebar-border: #C9C3A3;
+  --sidebar-ring: #5C6836;
 }
 
 .dark {
-  /* Dark Mode Adaptation */
-  --background: oklch(0.226 0.061 128.5);
-  /* Black Forest Background */
-  --foreground: oklch(0.97 0.01 101);
-  /* Light Beige Text */
+  /* Dark Theme - Deep Forest */
+  --background: #283618;
+  /* Black Forest */
+  --foreground: #FEFAE0;
+  /* Light Cream */
 
-  --card: oklch(0.25 0.05 128);
-  /* Slightly lighter Black Forest */
-  --card-foreground: oklch(0.97 0.01 101);
+  --card: #2f3e1b;
+  /* Slightly lighter forest */
+  --card-foreground: #FEFAE0;
 
-  --popover: oklch(0.25 0.05 128);
-  --popover-foreground: oklch(0.97 0.01 101);
+  --popover: #2f3e1b;
+  --popover-foreground: #FEFAE0;
 
-  --primary: oklch(0.793 0.057 101.4);
-  /* Dry Sage as Primary */
-  --primary-foreground: oklch(0.226 0.061 128.5);
+  --primary: #C9C3A3;
+  /* Dry Sage (High contrast against dark bg) */
+  --primary-foreground: #283618;
 
-  --secondary: oklch(0.438 0.088 123.6);
+  --secondary: #5C6836;
   /* Olive Leaf */
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-foreground: #FEFAE0;
 
-  --muted: oklch(0.3 0.05 128);
-  --muted-foreground: oklch(0.793 0.057 101.4);
+  --muted: #1e2912;
+  /* Darker Forest */
+  --muted-foreground: #C9C3A3;
 
-  --accent: oklch(0.583 0.089 69.8);
+  --accent: #A6835B;
   /* Faded Copper */
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: #FFFFFF;
 
-  --destructive: oklch(0.5 0.15 25);
+  --destructive: #BC4749;
+  --destructive-foreground: #FFFFFF;
 
-  --border: oklch(0.438 0.088 123.6);
-  /* Olive Leaf Border */
-  --input: oklch(0.438 0.088 123.6);
-  --ring: oklch(0.793 0.057 101.4);
+  --border: #5C6836;
+  --input: #5C6836;
+  --ring: #C9C3A3;
 
-  --sidebar: oklch(0.2 0.05 128);
-  --sidebar-foreground: oklch(0.97 0.01 101);
-  --sidebar-primary: oklch(0.793 0.057 101.4);
-  --sidebar-primary-foreground: oklch(0.226 0.061 128.5);
-  --sidebar-accent: oklch(0.3 0.05 128);
-  --sidebar-accent-foreground: oklch(0.97 0.01 101);
-  --sidebar-border: oklch(0.438 0.088 123.6);
-  --sidebar-ring: oklch(0.793 0.057 101.4);
+  --sidebar: #1e2912;
+  --sidebar-foreground: #FEFAE0;
+  --sidebar-primary: #C9C3A3;
+  --sidebar-primary-foreground: #283618;
+  --sidebar-accent: #2f3e1b;
+  --sidebar-accent-foreground: #FEFAE0;
+  --sidebar-border: #5C6836;
+  --sidebar-ring: #C9C3A3;
 }
 
 @layer base {
