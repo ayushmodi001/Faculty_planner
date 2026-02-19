@@ -218,10 +218,25 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <div className="space-y-1">
+                                            <Input
+                                                className="h-7 text-xs"
+                                                placeholder="Subject (e.g. Mathematics)"
+                                                value={slot.subject || ''}
+                                                onChange={(e) => handleUpdateSlot(day, idx, 'subject', e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-2 items-center">
                                             <Input
                                                 className="h-7 text-xs flex-1"
-                                                placeholder="Room (e.g. LT-1)"
+                                                placeholder="Faculty (e.g. Dr. Smith)"
+                                                value={slot.faculty || ''}
+                                                onChange={(e) => handleUpdateSlot(day, idx, 'faculty', e.target.value)}
+                                            />
+                                            <Input
+                                                className="h-7 text-xs w-20"
+                                                placeholder="Room"
                                                 value={slot.room || ''}
                                                 onChange={(e) => handleUpdateSlot(day, idx, 'room', e.target.value)}
                                             />

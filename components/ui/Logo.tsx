@@ -34,11 +34,7 @@ export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
 
             {showText && (
                 <div className="flex flex-col justify-center">
-                    <span className={cn("font-extrabold tracking-tight leading-none text-foreground",
-                        size === 'sm' ? "text-lg" : size === 'lg' ? "text-3xl" : "text-xl"
-                    )}>
-                        UAPS
-                    </span>
+                    {/* Text removed as it is in the logo image */}
                 </div>
             )}
         </div>
