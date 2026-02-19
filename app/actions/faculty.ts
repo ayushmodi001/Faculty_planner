@@ -80,3 +80,28 @@ export async function getAllFacultyGroups() {
         return { success: false, error: 'Failed to fetch faculty groups' };
     }
 }
+
+/**
+ * Fetches the latest academic plan for a given faculty group ID.
+ * @param groupId The ID of the faculty group
+ */
+export async function getPlanForGroup(groupId: string) {
+    try {
+        await dbConnect();
+        // Dynamic import to avoid circular dependency if Plan imports FacultyGroup (though unlikely here)
+        // Check if Plan model is already registered to avoid OverwriteModelError in dev
+        // best practice with mongoose in nextjs is to reuse models
+        const Plan = (await import('@/models/Plan')).default;
+
+        const plan = await Plan.findOne({ faculty_id: groupId })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        if (!plan) return { success: false, error: "No plan found" };
+
+        return { success: true, data: JSON.parse(JSON.stringify(plan)) };
+    } catch (error) {
+        console.error('Error fetching plan:', error);
+        return { success: false, error: 'Failed to fetch plan' };
+    }
+}
