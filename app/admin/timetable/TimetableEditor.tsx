@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Alert } from '@/components/ui/SwissUI';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui/SwissUI';
 import { Clock, Plus, Trash2, Save, Loader2, Calendar } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
