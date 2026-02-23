@@ -23,6 +23,7 @@ interface PlannerInterfaceProps {
 
 // Type for the AI response
 type GeneratedPlan = {
+    subjectName?: string;
     plan: {
         week: number;
         startDate: string;
@@ -86,6 +87,7 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
 
     const reconstructPlanData = (dbPlan: IPlan) => {
         const reconstructedPlan: GeneratedPlan = {
+            subjectName: dbPlan.subject,
             metrics: {
                 total_weeks: Math.ceil((dbPlan.syllabus_topics?.length || 0) / 3), // Approx 3 lectures per week
                 total_lectures: dbPlan.syllabus_topics?.length || 0,
@@ -130,22 +132,22 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
     };
 
     useEffect(() => {
-        if (defaultGroupId) {
+        if (defaultGroupId && facultyGroups.length > 0) {
             handleGroupChange(defaultGroupId);
         }
-    }, [defaultGroupId]);
+    }, [defaultGroupId, facultyGroups]);
 
-    // Fetch plan when group changes in read-only mode
+    // Fetch plan when group or subject changes in read-only mode
     useEffect(() => {
         if (readOnly && selectedGroupId) {
             const fetchPlan = async () => {
                 setIsGenerating(true);
-                const result = await getPlanForGroup(selectedGroupId);
+                const result = await getPlanForGroup(selectedGroupId, subject);
                 if (result.success && result.data) {
                     const dbPlan = result.data as IPlan;
-                    setSubject(dbPlan.subject);
+                    // Auto-select the subject if we just fetched "latest" (subject was empty)
+                    if (!subject) setSubject(dbPlan.subject);
                     setGeneratedPlan(reconstructPlanData(dbPlan));
-                    toast.success("Plan Loaded", { description: `Viewing approved plan for ${dbPlan.subject}` });
                 } else {
                     setGeneratedPlan(null);
                     if (!result.success && result.error !== "No plan found") {
@@ -156,7 +158,7 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
             };
             fetchPlan();
         }
-    }, [selectedGroupId, readOnly]);
+    }, [selectedGroupId, subject, readOnly]);
 
     const handleGenerate = async () => {
         if (!selectedGroupId || !syllabusText.trim() || !subject) {
@@ -226,6 +228,18 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                                         value={selectedGroupId}
                                         onValueChange={handleGroupChange}
                                         placeholder="Select Faculty Group..."
+                                        disabled={!!defaultGroupId} // Disable if fixed for student
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Subject / Course</label>
+                                    <SearchableSelect
+                                        disabled={!selectedGroupId}
+                                        options={availableSubjects.map(subj => ({ value: subj, label: subj }))}
+                                        value={subject}
+                                        onValueChange={setSubject}
+                                        placeholder="Select Subject..."
                                     />
                                 </div>
 
@@ -241,19 +255,6 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                                                 placeholder="Select Faculty Member..."
                                             />
                                         </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Subject</label>
-                                            <SearchableSelect
-                                                disabled={!selectedGroupId}
-                                                options={availableSubjects.map(subj => ({ value: subj, label: subj }))}
-                                                value={subject}
-                                                onValueChange={setSubject}
-                                                placeholder="Select Subject..."
-                                            />
-                                        </div>
-
-
 
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Syllabus Content (Upload PDF to auto-fill or paste manually)</label>
@@ -328,11 +329,13 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                                     <CalendarCheck className="w-8 h-8 text-muted-foreground" />
                                 </div>
                                 <h3 className="text-lg font-bold text-foreground">
-                                    {readOnly ? "Select a Group" : "Ready to Plan"}
+                                    {readOnly
+                                        ? (selectedGroupId ? (subject ? "No Plan Available" : "Select a Subject") : "Select a Group")
+                                        : "Ready to Plan"}
                                 </h3>
                                 <p className="text-muted-foreground max-w-sm mt-2">
                                     {readOnly
-                                        ? "Choose a faculty group to view the active academic calendar."
+                                        ? (selectedGroupId ? (subject ? "No curriculum roadmap has been approved for this subject yet." : "Please choose a subject to view its curriculum roadmap.") : "Choose a faculty group to view the active academic calendar.")
                                         : "Select a group and paste content to generate a deterministic, AI-optimized academic calendar."}
                                 </p>
                             </>

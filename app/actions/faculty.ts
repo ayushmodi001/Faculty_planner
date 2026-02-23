@@ -95,15 +95,15 @@ export async function getAllFacultyGroups() {
  * Fetches the latest academic plan for a given faculty group ID.
  * @param groupId The ID of the faculty group
  */
-export async function getPlanForGroup(groupId: string) {
+export async function getPlanForGroup(groupId: string, subject?: string) {
     try {
         await dbConnect();
-        // Dynamic import to avoid circular dependency if Plan imports FacultyGroup (though unlikely here)
-        // Check if Plan model is already registered to avoid OverwriteModelError in dev
-        // best practice with mongoose in nextjs is to reuse models
         const Plan = (await import('@/models/Plan')).default;
 
-        const plan = await Plan.findOne({ faculty_id: groupId })
+        const query: any = { faculty_id: groupId };
+        if (subject) query.subject = subject;
+
+        const plan = await Plan.findOne(query)
             .sort({ createdAt: -1 })
             .lean();
 
