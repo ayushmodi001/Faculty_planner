@@ -190,7 +190,7 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                     <div className="flex justify-between items-start mb-1">
                                         <div className="font-bold text-sm tracking-tight">{event.title}</div>
                                         <Badge
-                                            variant="outline"
+                                            variant="default"
                                             className={`text-[9px] uppercase font-bold
                                                 ${event.type === 'HOLIDAY' ? 'border-red-200 text-red-600 bg-red-50' :
                                                     event.type === 'EXAM' ? 'border-yellow-200 text-yellow-600 bg-yellow-50' :
@@ -290,7 +290,7 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <Badge
-                            variant="outline"
+                            variant="default"
                             className={`uppercase font-bold
                                 ${viewingEvent?.type === 'HOLIDAY' ? 'border-red-200 text-red-600 bg-red-50' :
                                     viewingEvent?.type === 'EXAM' ? 'border-yellow-200 text-yellow-600 bg-yellow-50' :

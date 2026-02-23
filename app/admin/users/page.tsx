@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, UserPlus, Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import DashboardLayout from '@/components/layout/DashboardLayout';
 
 export default function UserManagementPage() {
@@ -23,10 +24,22 @@ export default function UserManagementPage() {
     // Bulk User State
     const [bulkData, setBulkData] = useState<any[]>([]);
     const [fileName, setFileName] = useState('');
+    const [facultyGroups, setFacultyGroups] = useState<any[]>([]);
 
     React.useEffect(() => {
         fetchUsers();
+        fetchGroups();
     }, []);
+
+    const fetchGroups = async () => {
+        try {
+            const res = await fetch('/api/admin/faculty/list'); // I'll create this or use existing
+            const data = await res.json();
+            if (data.success) setFacultyGroups(data.groups);
+        } catch (error) {
+            console.error("Failed to fetch groups", error);
+        }
+    };
 
     const fetchUsers = async () => {
         try {
@@ -243,10 +256,11 @@ export default function UserManagementPage() {
                                             {singleUser.role === 'STUDENT' && (
                                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
                                                     <label className="text-sm font-medium">Class / Faculty Group</label>
-                                                    <Input
-                                                        placeholder="e.g. 7CSE3"
+                                                    <SearchableSelect
+                                                        options={facultyGroups.map(g => ({ value: g.name, label: g.name }))}
                                                         value={singleUser.facultyGroupName}
-                                                        onChange={e => setSingleUser({ ...singleUser, facultyGroupName: e.target.value })}
+                                                        onValueChange={val => setSingleUser({ ...singleUser, facultyGroupName: val })}
+                                                        placeholder="Select Faculty Group..."
                                                     />
                                                 </div>
                                             )}
