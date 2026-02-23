@@ -10,6 +10,7 @@ const CreateFacultyGroupSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters"),
     subjects: z.array(z.string()).min(1, "At least one subject is required"),
     members: z.array(z.string()).optional(),
+    students: z.array(z.string()).optional(),
     // Timetable is optional on creation, can be added later
     timetable: z.record(
         z.string(), // Key: Day name (e.g., "Monday")
@@ -52,6 +53,15 @@ export async function createFacultyGroup(data: CreateFacultyGroupInput) {
         };
 
         const newGroup = await FacultyGroup.create(facultyData);
+
+        // Update selected students
+        if (validatedData.students && validatedData.students.length > 0) {
+            const User = (await import('@/models/User')).default;
+            await User.updateMany(
+                { _id: { $in: validatedData.students } },
+                { $set: { facultyGroupId: newGroup._id.toString(), facultyGroupName: newGroup.name } }
+            );
+        }
 
         revalidatePath('/admin/faculty');
 

@@ -15,6 +15,7 @@ interface EditFacultyGroupFormProps {
 
         subjects: string[];
         members?: string[];
+        students?: string[];
         termStartDate?: Date | string;
         termEndDate?: Date | string;
     };
@@ -28,6 +29,8 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
     const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
     const [availableFaculties, setAvailableFaculties] = useState<{ name: string, email: string }[]>([]);
     const [currentFaculty, setCurrentFaculty] = useState('');
+    const [availableStudents, setAvailableStudents] = useState<{ _id: string, name: string, email: string }[]>([]);
+    const [currentStudent, setCurrentStudent] = useState('');
 
     useEffect(() => {
         const fetchResources = async () => {
@@ -39,6 +42,10 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                 const resFac = await fetch('/api/admin/users/list?role=FACULTY');
                 const dataFac = await resFac.json();
                 if (dataFac.success) setAvailableFaculties(dataFac.users);
+
+                const resStud = await fetch('/api/admin/users/list?role=STUDENT');
+                const dataStud = await resStud.json();
+                if (dataStud.success) setAvailableStudents(dataStud.users);
             } catch (err) {
                 console.error(err);
             }
@@ -78,6 +85,23 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
         setFormData(prev => ({
             ...prev,
             members: (prev.members || []).filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleAddStudent = () => {
+        if (currentStudent.trim() === '') return;
+        if (formData.students?.includes(currentStudent)) return;
+        setFormData(prev => ({
+            ...prev,
+            students: [...(prev.students || []), currentStudent]
+        }));
+        setCurrentStudent('');
+    };
+
+    const removeStudent = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            students: (prev.students || []).filter((_, i) => i !== index)
         }));
     };
 
@@ -204,6 +228,39 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                                 ))}
                                 {(formData.members || []).length === 0 && (
                                     <span className="text-sm text-muted-foreground italic w-full text-center">No faculties assigned.</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Students</label>
+                            <div className="flex gap-2 mb-3">
+                                <SearchableSelect
+                                    options={availableStudents.map(stud => ({ value: stud._id, label: `${stud.name} (${stud.email})` }))}
+                                    value={currentStudent}
+                                    onValueChange={setCurrentStudent}
+                                    placeholder="Select Student to Add"
+                                    className="flex-1"
+                                />
+                                <Button type="button" variant="secondary" onClick={handleAddStudent}>
+                                    <Plus className="w-4 h-4" /> Add
+                                </Button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
+                                {(formData.students || []).map((studId, idx) => {
+                                    const stud = availableStudents.find(s => s._id === studId);
+                                    return (
+                                        <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-blue-100 text-blue-900 border border-blue-200">
+                                            {stud ? stud.name : studId}
+                                            <button type="button" onClick={() => removeStudent(idx)} className="hover:bg-blue-600 hover:text-white rounded-full p-0.5">
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </Badge>
+                                    );
+                                })}
+                                {(formData.students || []).length === 0 && (
+                                    <span className="text-sm text-muted-foreground italic w-full text-center">No students assigned.</span>
                                 )}
                             </div>
                         </div>

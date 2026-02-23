@@ -15,12 +15,15 @@ export default function CreateFacultyGroupForm() {
         currentSubject: '',
         subjects: [] as string[],
         currentFaculty: '',
-        members: [] as string[]
+        members: [] as string[],
+        currentStudent: '',
+        students: [] as string[]
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
     const [availableFaculties, setAvailableFaculties] = useState<{ name: string, email: string }[]>([]);
+    const [availableStudents, setAvailableStudents] = useState<{ _id: string, name: string, email: string }[]>([]);
 
     useEffect(() => {
         const fetchResources = async () => {
@@ -34,6 +37,11 @@ export default function CreateFacultyGroupForm() {
                 const resFac = await fetch('/api/admin/users/list?role=FACULTY');
                 const dataFac = await resFac.json();
                 if (dataFac.success) setAvailableFaculties(dataFac.users);
+
+                // Fetch Students
+                const resStud = await fetch('/api/admin/users/list?role=STUDENT');
+                const dataStud = await resStud.json();
+                if (dataStud.success) setAvailableStudents(dataStud.users);
             } catch (err) {
                 console.error(err);
             }
@@ -74,6 +82,23 @@ export default function CreateFacultyGroupForm() {
         }));
     };
 
+    const handleAddStudent = () => {
+        if (formData.currentStudent.trim() === '') return;
+        if (formData.students.includes(formData.currentStudent)) return;
+        setFormData(prev => ({
+            ...prev,
+            students: [...prev.students, prev.currentStudent],
+            currentStudent: ''
+        }));
+    };
+
+    const removeStudent = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            students: prev.students.filter((_, i) => i !== index)
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.subjects.length === 0) {
@@ -87,7 +112,8 @@ export default function CreateFacultyGroupForm() {
         const result = await createFacultyGroup({
             name: formData.name,
             subjects: formData.subjects,
-            members: formData.members
+            members: formData.members,
+            students: formData.students
             // Timetable will be handled in a separate step
         });
 
@@ -220,6 +246,53 @@ export default function CreateFacultyGroupForm() {
                                             </button>
                                         </Badge>
                                     ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="border-t border-border"></div>
+
+                        {/* Associated Students */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Students</label>
+                            <div className="flex gap-2 mb-3">
+                                <SearchableSelect
+                                    options={availableStudents.map(stud => ({ value: stud._id, label: `${stud.name} (${stud.email})` }))}
+                                    value={formData.currentStudent}
+                                    onValueChange={(val) => setFormData({ ...formData, currentStudent: val })}
+                                    placeholder="Select Student"
+                                    className="flex-1"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleAddStudent}
+                                    className="gap-2"
+                                >
+                                    <Plus className="w-4 h-4" /> Add
+                                </Button>
+                            </div>
+
+                            {/* Student Pills */}
+                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
+                                {formData.students.length === 0 ? (
+                                    <span className="text-sm text-muted-foreground italic w-full text-center">No students assigned yet. Select above.</span>
+                                ) : (
+                                    formData.students.map((studId, idx) => {
+                                        const stud = availableStudents.find(s => s._id === studId);
+                                        return (
+                                            <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-blue-100 text-blue-900 border border-blue-200">
+                                                {stud ? stud.name : studId}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeStudent(idx)}
+                                                    className="hover:bg-blue-600 hover:text-white rounded-full p-0.5 transition-colors"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </Badge>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>

@@ -13,6 +13,7 @@ export interface IFacultyGroup extends Document {
     name: string;
     subjects: string[];
     members?: string[];
+    students?: string[]; // Array of Student User IDs
     timetable: Map<string, ISlot[]>; // Key: "Monday" -> Slots
     termStartDate?: Date;
     termEndDate?: Date;
@@ -32,6 +33,7 @@ const FacultyGroupSchema = new Schema<IFacultyGroup>(
         name: { type: String, required: true, unique: true },
         subjects: [{ type: String }],
         members: [{ type: String }], // Array of Faculty Names
+        students: [{ type: String }], // Array of Student User IDs
         timetable: {
             type: Map,
             of: [SlotSchema],
