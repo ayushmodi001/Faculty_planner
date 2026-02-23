@@ -4,7 +4,7 @@ import { SwissHeading } from '@/components/ui/SwissUI';
 
 export default function CalendarPage() {
     return (
-        <DashboardLayout role="Principal">
+        <DashboardLayout role="HOD">
             <div className="mb-8">
                 <SwissHeading>Academic Calendar Management</SwissHeading>
                 <p className="text-muted-foreground">Manage holidays, exams, and important academic dates.</p>

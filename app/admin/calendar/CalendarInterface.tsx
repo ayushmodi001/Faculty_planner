@@ -16,10 +16,12 @@ interface CalendarInterfaceProps {
 
 export default function CalendarInterface({ readOnly = false }: CalendarInterfaceProps) {
     const [date, setDate] = useState<Date | undefined>(new Date());
+    const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
     const [events, setEvents] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [viewingEvent, setViewingEvent] = useState<any | null>(null);
 
     // New Event State
     const [newEvent, setNewEvent] = useState({
@@ -88,15 +90,38 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
     const handleDeleteEvent = async (id: string) => {
         if (confirm('Delete this event?')) {
             await deleteCalendarEvent(id);
+            setViewingEvent(null);
             loadEvents();
             toast.success('Event Deleted');
         }
     };
 
-    // Filter events for selected date
-    const selectedDateEvents = events.filter(e =>
-        date && new Date(e.date).toDateString() === date.toDateString()
-    );
+    // Date range helper
+    const isDateInRange = (d: Date, startStr: string, endStr?: string) => {
+        const target = new Date(d).setHours(0, 0, 0, 0);
+        const start = new Date(startStr).setHours(0, 0, 0, 0);
+        if (endStr) {
+            const end = new Date(endStr).setHours(0, 0, 0, 0);
+            return target >= start && target <= end;
+        }
+        return target === start;
+    };
+
+    // Filter events for the currently viewed month
+    const monthEvents = events.filter(e => {
+        const eDate = new Date(e.date);
+        const eEndDate = e.endDate ? new Date(e.endDate) : eDate;
+        return (
+            (eDate.getMonth() === currentMonth.getMonth() && eDate.getFullYear() === currentMonth.getFullYear()) ||
+            (eEndDate.getMonth() === currentMonth.getMonth() && eEndDate.getFullYear() === currentMonth.getFullYear())
+        );
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Generate modifiers
+    const isHoliday = (d: Date) => events.some(e => e.type === 'HOLIDAY' && isDateInRange(d, e.date, e.endDate));
+    const isExam = (d: Date) => events.some(e => e.type === 'EXAM' && isDateInRange(d, e.date, e.endDate));
+    const isDeadline = (d: Date) => events.some(e => e.type === 'DEADLINE' && isDateInRange(d, e.date, e.endDate));
+    const isGeneralEvent = (d: Date) => events.some(e => e.type === 'EVENT' && isDateInRange(d, e.date, e.endDate));
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -113,14 +138,34 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                             mode="single"
                             selected={date}
                             onSelect={setDate}
-                            className="rounded-md border mx-auto"
+                            month={currentMonth}
+                            onMonthChange={setCurrentMonth}
+                            className="rounded-md border mx-auto w-full p-6 flex justify-center scale-110 mt-6 mb-6"
+                            classNames={{
+                                head_cell: "text-muted-foreground w-12 font-bold text-sm",
+                                cell: "text-center text-sm p-0 w-12 h-12 flex items-center justify-center",
+                                day: "h-10 w-10 hover:bg-accent hover:text-accent-foreground font-medium rounded-full",
+                                day_selected: "bg-primary text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                            }}
                             modifiers={{
-                                event: (d) => events.some(e => new Date(e.date).toDateString() === d.toDateString())
+                                holiday: isHoliday,
+                                exam: isExam,
+                                deadline: isDeadline,
+                                event: isGeneralEvent
                             }}
                             modifiersStyles={{
-                                event: { fontWeight: 'bold', textDecoration: 'underline', color: 'var(--primary)' }
+                                holiday: { backgroundColor: '#fee2e2', color: '#dc2626', fontWeight: 'bold' },
+                                exam: { backgroundColor: '#fef08a', color: '#ca8a04', fontWeight: 'bold' },
+                                deadline: { backgroundColor: '#ffedd5', color: '#ea580c', fontWeight: 'bold' },
+                                event: { backgroundColor: '#dbeafe', color: '#2563eb', fontWeight: 'bold' }
                             }}
                         />
+                        <div className="flex flex-wrap gap-4 mt-8 justify-center text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#fee2e2] border border-[#dc2626]"></span> Holiday</div>
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#fef08a] border border-[#ca8a04]"></span> Exam</div>
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#ffedd5] border border-[#ea580c]"></span> Deadline</div>
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#dbeafe] border border-[#2563eb]"></span> Event</div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -129,46 +174,42 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                 <Card className="h-full border-none shadow-sm bg-muted/20">
                     <CardHeader>
                         <CardTitle className="text-lg">
-                            {date ? date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : 'Select a date'}
+                            {currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} Events
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3">
                         {isLoading ? (
                             <Loader2 className="animate-spin w-8 h-8 mx-auto opacity-50" />
-                        ) : selectedDateEvents.length > 0 ? (
-                            selectedDateEvents.map(event => (
-                                <div key={event._id} className="p-3 bg-background rounded-lg border shadow-sm flex justify-between items-start group">
-                                    <div>
-                                        <div className="font-bold text-sm">{event.title}</div>
-                                        <Badge variant={event.type === 'HOLIDAY' ? 'destructive' : 'default'} className="mt-1 text-[10px]">
+                        ) : monthEvents.length > 0 ? (
+                            monthEvents.map(event => (
+                                <div
+                                    key={event._id}
+                                    className="p-3 bg-background rounded-lg border shadow-sm cursor-pointer hover:border-primary transition-all group"
+                                    onClick={() => setViewingEvent(event)}
+                                >
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className="font-bold text-sm tracking-tight">{event.title}</div>
+                                        <Badge
+                                            variant="outline"
+                                            className={`text-[9px] uppercase font-bold
+                                                ${event.type === 'HOLIDAY' ? 'border-red-200 text-red-600 bg-red-50' :
+                                                    event.type === 'EXAM' ? 'border-yellow-200 text-yellow-600 bg-yellow-50' :
+                                                        event.type === 'DEADLINE' ? 'border-orange-200 text-orange-600 bg-orange-50' :
+                                                            'border-blue-200 text-blue-600 bg-blue-50'}
+                                            `}
+                                        >
                                             {event.type}
                                         </Badge>
                                     </div>
-                                    {!readOnly && (
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
-                                                onClick={() => handleEditClick(event)}
-                                            >
-                                                <Edit className="w-3 h-3" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                                onClick={() => handleDeleteEvent(event._id)}
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </Button>
-                                        </div>
-                                    )}
+                                    <div className="text-xs text-muted-foreground font-mono">
+                                        {new Date(event.date).toLocaleDateString()}
+                                        {event.endDate && event.endDate !== event.date && ` - ${new Date(event.endDate).toLocaleDateString()}`}
+                                    </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-8 text-muted-foreground text-sm">
-                                No events scheduled.
+                            <div className="text-center py-12 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                                No events scheduled for this month.
                             </div>
                         )}
 
@@ -240,6 +281,56 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                     </CardContent>
                 </Card>
             </div>
+
+            {/* View/Edit Details Dialog */}
+            <Dialog open={!!viewingEvent} onOpenChange={(open) => !open && setViewingEvent(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">{viewingEvent?.title}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <Badge
+                            variant="outline"
+                            className={`uppercase font-bold
+                                ${viewingEvent?.type === 'HOLIDAY' ? 'border-red-200 text-red-600 bg-red-50' :
+                                    viewingEvent?.type === 'EXAM' ? 'border-yellow-200 text-yellow-600 bg-yellow-50' :
+                                        viewingEvent?.type === 'DEADLINE' ? 'border-orange-200 text-orange-600 bg-orange-50' :
+                                            'border-blue-200 text-blue-600 bg-blue-50'}
+                            `}
+                        >
+                            {viewingEvent?.type}
+                        </Badge>
+                        <div className="text-sm border-l-2 pl-3 border-muted">
+                            <span className="font-semibold text-muted-foreground block mb-1">Date Range</span>
+                            <div className="font-mono text-foreground font-bold">
+                                {viewingEvent && new Date(viewingEvent.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                {viewingEvent?.endDate && viewingEvent.endDate !== viewingEvent.date && (
+                                    <> <br /><span className="text-muted-foreground font-normal">to</span> <br />{new Date(viewingEvent.endDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</>
+                                )}
+                            </div>
+                        </div>
+                        {viewingEvent?.description && (
+                            <div className="text-sm bg-muted/30 p-4 rounded-md">
+                                {viewingEvent.description}
+                            </div>
+                        )}
+                    </div>
+                    {!readOnly && (
+                        <div className="flex justify-end gap-2 border-t pt-4">
+                            <Button variant="outline" onClick={() => {
+                                handleEditClick(viewingEvent);
+                                setViewingEvent(null);
+                            }}>
+                                <Edit className="w-4 h-4 mr-2" /> Edit
+                            </Button>
+                            <Button variant="destructive" onClick={() => handleDeleteEvent(viewingEvent._id)}>
+                                <Trash2 className="w-4 h-4 mr-2" /> Delete
+                            </Button>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import LogoutButton from './LogoutButton';
-import { Home, LogOut, ChevronLeft, ArrowLeft } from 'lucide-react';
+import { Home, LogOut, ChevronLeft, ArrowLeft, Settings } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { ModeToggle } from '@/components/mode-toggle';
 
@@ -49,6 +49,11 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
                         </div>
 
                         <div className="flex items-center gap-3">
+                            <Link href="/settings">
+                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted" title="Settings">
+                                    <Settings className="w-5 h-5 text-muted-foreground" />
+                                </Button>
+                            </Link>
                             <ModeToggle />
                             <div className="h-6 w-px bg-border/50 mx-1"></div>
                             <LogoutButton />
