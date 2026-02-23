@@ -24,6 +24,14 @@ export default function FacultyGroupList({ groups }: FacultyGroupListProps) {
         );
     };
 
+    const handleSelectAll = () => {
+        if (selectedIds.length === groups.length && groups.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(groups.map(g => g._id as unknown as string));
+        }
+    };
+
     const handleDeleteSelected = async () => {
         if (!confirm(`Are you sure you want to delete ${selectedIds.length} faculty groups?`)) return;
         setIsDeleting(true);
@@ -51,6 +59,14 @@ export default function FacultyGroupList({ groups }: FacultyGroupListProps) {
                     <p className="font-mono text-sm mt-1">Manage departmental groups and timetables.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    {groups.length > 0 && (
+                        <NeoButton
+                            className="flex items-center gap-2 bg-white hover:bg-gray-100 text-black border-black"
+                            onClick={handleSelectAll}
+                        >
+                            {selectedIds.length === groups.length ? 'Deselect All' : 'Select All'}
+                        </NeoButton>
+                    )}
                     {selectedIds.length > 0 && (
                         <NeoButton
                             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white border-black"
