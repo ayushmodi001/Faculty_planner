@@ -34,7 +34,8 @@ export default function SubjectsPage() {
     const [editingSubject, setEditingSubject] = useState<ISubject | null>(null);
     const [editName, setEditName] = useState("");
     const [editCode, setEditCode] = useState("");
-    const [editSyllabus, setEditSyllabus] = useState("");
+    const [editSyllabusFile, setEditSyllabusFile] = useState<File | null>(null);
+    const [editSyllabusHasOriginal, setEditSyllabusHasOriginal] = useState(false);
 
     // Initial Fetch
     const fetchSubjects = async () => {
@@ -59,10 +60,15 @@ export default function SubjectsPage() {
         e.preventDefault();
         if (!newName || !newCode) return;
 
-        let syllabusText = "";
+        let syllabusBase64 = "";
         if (syllabusFile) {
             try {
-                syllabusText = await syllabusFile.text();
+                syllabusBase64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(syllabusFile);
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = error => reject(error);
+                });
             } catch (e) {
                 toast.error("Could not read syllabus file");
                 return;
@@ -74,7 +80,7 @@ export default function SubjectsPage() {
             const res = await fetch('/api/admin/subjects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName, code: newCode, faculties: [], syllabus: syllabusText })
+                body: JSON.stringify({ name: newName, code: newCode, faculties: [], syllabus: syllabusBase64 })
             });
             const data = await res.json();
 
@@ -111,16 +117,35 @@ export default function SubjectsPage() {
 
     const handleEditSave = async () => {
         if (!editingSubject) return;
+        setIsSubmitting(true);
         try {
+            let finalSyllabusBase64 = editingSubject.syllabus; // Keep existing if not changed
+
+            if (editSyllabusFile) {
+                try {
+                    finalSyllabusBase64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(editSyllabusFile);
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = error => reject(error);
+                    });
+                } catch (e) {
+                    toast.error("Could not read new syllabus file");
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             const res = await fetch('/api/admin/subjects', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: editingSubject._id, name: editName, code: editCode, syllabus: editSyllabus })
+                body: JSON.stringify({ id: editingSubject._id, name: editName, code: editCode, syllabus: finalSyllabusBase64 })
             });
             const data = await res.json();
             if (data.success) {
                 toast.success("Subject Updated");
                 setEditingSubject(null);
+                setEditSyllabusFile(null);
                 fetchSubjects();
                 router.refresh();
             } else {
@@ -128,23 +153,22 @@ export default function SubjectsPage() {
             }
         } catch (err) {
             toast.error("Error updating subject");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleDownloadSyllabus = (subject: ISubject) => {
-        if (!subject.syllabus) {
-            toast.error("No syllabus available for this subject");
+        if (!subject.syllabus || !subject.syllabus.startsWith('data:application/pdf')) {
+            toast.error("No valid PDF syllabus available for this subject");
             return;
         }
-        const blob = new Blob([subject.syllabus], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `${subject.code}_syllabus.txt`;
+        a.href = subject.syllabus;
+        a.download = `${subject.code}_syllabus.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     };
 
     return (
@@ -192,10 +216,10 @@ export default function SubjectsPage() {
                                         <label className="text-sm font-medium">Syllabus File (Optional)</label>
                                         <Input
                                             type="file"
-                                            accept=".txt,.csv"
+                                            accept=".pdf"
                                             onChange={(e) => setSyllabusFile(e.target.files?.[0] || null)}
                                         />
-                                        <p className="text-[10px] text-muted-foreground">Upload the syllabus text directly for AI planning</p>
+                                        <p className="text-[10px] text-muted-foreground">Upload the syllabus in PDF format</p>
                                     </div>
                                     <Button type="submit" className="w-full" disabled={isSubmitting}>
                                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
@@ -245,7 +269,8 @@ export default function SubjectsPage() {
                                                             setEditingSubject(sub);
                                                             setEditName(sub.name);
                                                             setEditCode(sub.code);
-                                                            setEditSyllabus(sub.syllabus || "");
+                                                            setEditSyllabusHasOriginal(!!sub.syllabus && sub.syllabus.startsWith('data:application/pdf'));
+                                                            setEditSyllabusFile(null);
                                                         }}
                                                         className="text-primary hover:text-primary hover:bg-primary/10"
                                                         title="Edit Subject"
@@ -288,22 +313,28 @@ export default function SubjectsPage() {
                             <Input value={editCode} onChange={(e) => setEditCode(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Syllabus Text</label>
-                            <Textarea
-                                className="h-32"
-                                value={editSyllabus}
-                                onChange={(e) => setEditSyllabus(e.target.value)}
-                                placeholder="Raw syllabus text for AI..."
+                            <label className="text-sm font-medium">Replace Syllabus File (Optional)</label>
+                            {editSyllabusHasOriginal && !editSyllabusFile && (
+                                <p className="text-xs text-green-600 mb-1">✓ A valid PDF syllabus is currently uploaded</p>
+                            )}
+                            <Input
+                                type="file"
+                                accept=".pdf"
+                                onChange={(e) => setEditSyllabusFile(e.target.files?.[0] || null)}
                             />
+                            <p className="text-[10px] text-muted-foreground">Upload a new PDF to replace the existing one</p>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditingSubject(null)}>Cancel</Button>
-                        <Button onClick={handleEditSave}>Save Changes</Button>
+                        <Button variant="outline" onClick={() => { setEditingSubject(null); setEditSyllabusFile(null); }}>Cancel</Button>
+                        <Button onClick={handleEditSave} disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            Save Changes
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }
