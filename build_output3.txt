@@ -1,0 +1,24 @@
+
+> uaps@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 10.3s
+  Running TypeScript ...
+Failed to compile.
+
+./app/api/admin/subjects/route.ts:29:85
+Type error: Property 'errors' does not exist on type 'ZodError<{ name: string; code: string; faculties?: string[] | undefined; }>'.
+
+  27 |         const result = subjectSchema.safeParse(body);
+  28 |         if (!result.success) {
+> 29 |             return NextResponse.json({ error: "Invalid data", details: result.error.errors }, { status: 400 });
+     |                                                                                     ^
+  30 |         }
+  31 |
+  32 |         const { name, code, faculties } = result.data;
+Next.js build worker exited with code: 1 and signal: null

@@ -5,6 +5,7 @@ export interface ISubject extends Document {
     code: string;
     // We can link specific faculties to this subject (optional, "who CAN teach this")
     faculties?: string[]; // Storing faculty names or IDs for now. Names are easier for existing dropdowns.
+    syllabus?: string;
 }
 
 const SubjectSchema = new Schema<ISubject>(
@@ -12,6 +13,7 @@ const SubjectSchema = new Schema<ISubject>(
         name: { type: String, required: true },
         code: { type: String, required: true, unique: true },
         faculties: [{ type: String }],
+        syllabus: { type: String }
     },
     { timestamps: true }
 );

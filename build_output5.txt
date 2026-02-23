@@ -1,0 +1,26 @@
+
+> uaps@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 10.8s
+  Running TypeScript ...
+Failed to compile.
+
+./app/api/admin/users/route.ts:92:21
+Type error: No overload matches this call.
+  The last overload gave the following error.
+    Type 'unknown' is not assignable to type 'StringQueryTypeCasting | undefined'.
+
+  90 |                     passwordHash: hashedPassword,
+  91 |                     isActive: true,
+> 92 |                     department: session.role === UserRole.HOD ? session.department : user.department // If HOD, force dept? optional logic
+     |                     ^
+  93 |                 });
+  94 |
+  95 |                 createdUsers.push({ email: newUser.email, id: newUser._id });
+Next.js build worker exited with code: 1 and signal: null

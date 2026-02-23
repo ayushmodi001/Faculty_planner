@@ -35,18 +35,18 @@ export default async function HODDashboard() {
             {/* Header Section */}
             <div className="mb-10 max-w-4xl animate-in slide-in-from-bottom-5 duration-500">
                 <div className="flex items-center gap-3 mb-4">
-                    <span className="px-3 py-1 rounded-full bg-[#283618] text-[#FEFAE0] text-xs font-bold uppercase tracking-wider border border-[#283618]">
+                    <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider">
                         Department Head
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-[#E9E5D0] text-[#5C6836] text-xs font-bold uppercase tracking-wider border border-[#C9C3A3]">
+                    <span className="px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-bold uppercase tracking-wider">
                         {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
                 </div>
-                <SwissHeading className="text-4xl md:text-5xl mb-4 text-[#283618] tracking-tight">
-                    Computer Science <span className="text-[#A6835B] font-serif italic">Overview</span>
+                <SwissHeading className="text-4xl md:text-5xl mb-4 text-foreground tracking-tight">
+                    Computer Science <span className="text-muted-foreground font-serif italic">Overview</span>
                 </SwissHeading>
-                <p className="text-lg text-[#5C6836] leading-relaxed max-w-2xl font-medium">
-                    Real-time academic surveillance. Faculty load balancing, curriculum coverage, and schedule integrity are currently <span className="text-[#283618] font-bold underline decoration-[#A6835B] decoration-2 underline-offset-4">Optimal</span>.
+                <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                    Real-time academic surveillance. Faculty load balancing, curriculum coverage, and schedule integrity are currently <span className="text-foreground font-bold underline decoration-primary decoration-2 underline-offset-4">Optimal</span>.
                 </p>
             </div>
 
@@ -55,25 +55,25 @@ export default async function HODDashboard() {
 
                 {/* Card 1: Faculty (High Contrast Dark) */}
                 <Link href="/admin/users" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-none shadow-xl bg-primary text-primary-foreground rounded-[24px] overflow-hidden relative hover:scale-[1.02] transition-transform duration-300">
+                    <Card className="h-full border border-border shadow-xl bg-primary text-primary-foreground rounded-[24px] overflow-hidden relative hover:scale-[1.02] transition-transform duration-300">
                         <div className="absolute top-0 right-0 p-8 opacity-10">
                             <Users className="w-32 h-32 -mr-10 -mt-10" />
                         </div>
                         <CardHeader className="pb-2 relative z-10">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm">
+                                <div className="p-3 bg-background/20 rounded-2xl backdrop-blur-sm">
                                     <Users className="w-6 h-6 text-primary-foreground" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-white -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-primary-foreground/50 group-hover:text-primary-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
                                 <div className="text-4xl font-black">{facultyCount}</div>
-                                <CardTitle className="text-lg text-muted-foreground font-medium">Active Faculty</CardTitle>
+                                <CardTitle className="text-lg text-primary-foreground/80 font-medium">Active Faculty</CardTitle>
                             </div>
                         </CardHeader>
                         <CardContent className="relative z-10">
-                            <div className="flex items-center gap-2 mt-4 text-xs font-bold uppercase tracking-wider text-accent-foreground">
-                                <span className="w-2 h-2 rounded-full bg-accent-foreground animate-pulse"></span>
+                            <div className="flex items-center gap-2 mt-4 text-xs font-bold uppercase tracking-wider text-primary-foreground opacity-80">
+                                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
                                 Online Now
                             </div>
                         </CardContent>
@@ -81,36 +81,36 @@ export default async function HODDashboard() {
                 </Link>
 
                 {/* Card 2: Student Stats (Medium Contrast) */}
-                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full border-none shadow-lg bg-secondary text-secondary-foreground rounded-[24px] overflow-hidden relative group hover:scale-[1.02] transition-transform duration-300">
-                    <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/20 to-transparent"></div>
+                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full border border-border shadow-md bg-secondary text-secondary-foreground rounded-[24px] overflow-hidden relative group hover:scale-[1.02] transition-transform duration-300">
+                    <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-background/5 to-transparent"></div>
                     <CardHeader className="pb-2 relative z-10">
                         <div className="flex justify-between items-start mb-6">
-                            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm">
-                                <GraduationCap className="w-6 h-6 text-white" />
+                            <div className="p-3 bg-background rounded-2xl shadow-sm">
+                                <GraduationCap className="w-6 h-6 text-foreground" />
                             </div>
                         </div>
                         <div className="space-y-1">
                             <div className="text-4xl font-black">{studentCount}</div>
-                            <CardTitle className="text-lg text-secondary-foreground/80 font-medium">Students Enrolled</CardTitle>
+                            <CardTitle className="text-lg text-muted-foreground font-medium">Students Enrolled</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="relative z-10">
-                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xs font-medium text-secondary-foreground/80">
+                        <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-xs font-medium text-muted-foreground">
                             <span>Attendance</span>
-                            <span className="font-bold text-white">94%</span>
+                            <span className="font-bold text-foreground">94%</span>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Card 3: Curriculum (Light but Bold) */}
                 <Link href="/admin/subjects" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border border-border shadow-sm bg-card hover:bg-accent/50 hover:border-accent rounded-[24px] overflow-hidden transition-all duration-300">
+                    <Card className="h-full border border-border shadow-sm bg-card hover:bg-muted hover:border-primary/50 rounded-[24px] overflow-hidden transition-all duration-300">
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-muted rounded-2xl group-hover:bg-primary transition-colors duration-300">
-                                    <BookOpen className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
+                                <div className="p-3 bg-secondary rounded-2xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                                    <BookOpen className="w-6 h-6" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
                                 <div className="text-4xl font-black text-foreground">{subjectCount}</div>
@@ -122,18 +122,18 @@ export default async function HODDashboard() {
 
                 {/* Card 4: Planner Read Only */}
                 <Link href="/admin/planner" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-none shadow-md bg-card ring-1 ring-border rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300">
+                    <Card className="h-full border border-border shadow-sm bg-card rounded-[24px] overflow-hidden relative hover:shadow-lg transition-all duration-300">
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-accent/10 rounded-2xl group-hover:bg-accent transition-colors duration-300">
-                                    <FileText className="w-6 h-6 text-accent group-hover:text-white" />
+                                <div className="p-3 bg-muted rounded-2xl transition-colors duration-300">
+                                    <FileText className="w-6 h-6 text-foreground" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
                                 <div className="text-xl font-black text-foreground mt-2">Academic Planner</div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+                                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                                         VIEW ONLY
                                     </span>
                                 </div>
@@ -149,18 +149,18 @@ export default async function HODDashboard() {
 
                 {/* Card 5: Academic Calendar Link */}
                 <Link href="/dashboard/hod/calendar" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-none shadow-md bg-card ring-1 ring-border rounded-[24px] overflow-hidden relative hover:shadow-xl transition-all duration-300">
+                    <Card className="h-full border border-border shadow-sm bg-card rounded-[24px] overflow-hidden relative hover:shadow-lg transition-all duration-300">
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-primary/10 rounded-2xl group-hover:bg-primary transition-colors duration-300">
-                                    <CalendarRange className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
+                                <div className="p-3 bg-muted rounded-2xl group-hover:bg-primary transition-colors duration-300 group-hover:text-primary-foreground">
+                                    <CalendarRange className="w-6 h-6" />
                                 </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                             </div>
                             <div className="space-y-1">
                                 <div className="text-xl font-black text-foreground mt-2">Academic Calendar</div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                                         VIEW ONLY
                                     </span>
                                 </div>
@@ -174,48 +174,74 @@ export default async function HODDashboard() {
                     </Card>
                 </Link>
 
+                {/* Card 6: Timetable Manager */}
+                <Link href="/admin/timetable" className="group col-span-1 md:col-span-2 lg:col-span-1">
+                    <Card className="h-full border-2 border-dashed border-border shadow-sm bg-muted/20 hover:bg-muted/50 rounded-[24px] overflow-hidden relative hover:border-primary/50 transition-all duration-300">
+                        <CardHeader className="pb-2">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="p-3 bg-background rounded-2xl shadow-sm transition-transform duration-300">
+                                    <LayoutDashboard className="w-6 h-6 text-foreground" />
+                                </div>
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xl font-black text-foreground mt-2">Master Timetable</div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                        EDITABLE
+                                    </span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground font-medium leading-tight">
+                                Define class slots and weekly schedules for faculty groups.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </Link>
 
             </div>
 
-            {/* List Section - Faculty Overview (Real Data) */}
+            {/* List Section - Faculty Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-10 duration-700 delay-200 mb-12">
                 <div className="lg:col-span-2">
-                    <div className="flex items-center justify-between mb-6">
-                        <SwissHeading className="text-2xl text-[#283618] flex items-center gap-2">
-                            <Users className="w-6 h-6 text-[#5C6836]" />
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b">
+                        <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                            <Users className="w-5 h-5 text-muted-foreground" />
                             Faculty Roster
-                        </SwissHeading>
-                        <Button variant="ghost" className="text-[#A6835B] hover:text-[#283618] hover:bg-[#C9C3A3]/20">View Full Directory</Button>
+                        </h2>
+                        <Button variant="ghost" className="text-muted-foreground hover:text-foreground">View Full Directory</Button>
                     </div>
 
-                    <Card className="border-none shadow-lg overflow-hidden rounded-[24px] bg-white ring-1 ring-black/5">
+                    <Card className="border border-border shadow-sm overflow-hidden rounded-[24px] bg-card">
                         <div className="p-0 overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="bg-[#F2EFE5] border-b border-[#C9C3A3]/30">
-                                        <th className="px-6 py-4 text-xs font-bold text-[#5C6836] uppercase tracking-wider">Faculty Member</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-[#5C6836] uppercase tracking-wider">Contact</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-[#5C6836] uppercase tracking-wider text-center">Status</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-[#5C6836] uppercase tracking-wider text-right">Projected Load</th>
+                                    <tr className="bg-muted/50 border-b border-border">
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Faculty Member</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Status</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Projected Load</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {recentFaculty.length > 0 ? (
                                         recentFaculty.map((fac: any, i: number) => (
-                                            <tr key={fac._id} className="border-b border-[#C9C3A3]/10 last:border-0 hover:bg-[#FEFAE0]/30 transition-colors group">
+                                            <tr key={fac._id} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-[#283618] text-[#FEFAE0] flex items-center justify-center font-bold text-sm shadow-sm">
+                                                        <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shadow-sm">
                                                             {fac.name.charAt(0)}
                                                         </div>
                                                         <div>
-                                                            <div className="font-bold text-[#283618] text-sm group-hover:text-[#A6835B] transition-colors">{fac.name}</div>
-                                                            <div className="text-xs text-[#5C6836] font-medium">Assistant Professor</div>
+                                                            <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">{fac.name}</div>
+                                                            <div className="text-xs text-muted-foreground font-medium">Assistant Professor</div>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium text-[#5C6836]">{fac.email}</div>
+                                                    <div className="text-sm font-medium text-muted-foreground">{fac.email}</div>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
@@ -225,14 +251,13 @@ export default async function HODDashboard() {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex flex-col items-end gap-1">
-                                                        <div className="w-24 h-2 bg-[#E9E5D0] rounded-full overflow-hidden">
-                                                            {/* Simulated randomized load for realism */}
+                                                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
                                                             <div
-                                                                className="h-full bg-[#A6835B] rounded-full"
+                                                                className="h-full bg-primary rounded-full transition-all duration-1000"
                                                                 style={{ width: `${Math.floor(Math.random() * (90 - 40) + 40)}%` }}
                                                             ></div>
                                                         </div>
-                                                        <span className="text-xs font-bold text-[#283618]">{Math.floor(Math.random() * (18 - 8) + 8)} Hours</span>
+                                                        <span className="text-xs font-bold text-foreground">{Math.floor(Math.random() * (18 - 8) + 8)} Hours</span>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -240,7 +265,7 @@ export default async function HODDashboard() {
                                     ) : (
                                         <tr>
                                             <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
-                                                No faculty found. <Link href="/admin/users" className="underline text-[#A6835B]">Add users</Link>.
+                                                No faculty found. <Link href="/admin/users" className="underline text-primary">Add users</Link>.
                                             </td>
                                         </tr>
                                     )}
@@ -252,42 +277,40 @@ export default async function HODDashboard() {
 
                 {/* Notifications Panel */}
                 <div>
-                    <SwissHeading className="text-2xl mb-6 text-[#283618] flex items-center gap-2">
-                        <Bell className="w-6 h-6 text-[#5C6836]" />
+                    <h2 className="text-2xl font-bold tracking-tight mb-6 pb-4 border-b text-foreground flex items-center gap-2">
+                        <Bell className="w-5 h-5 text-muted-foreground" />
                         Latest Updates
-                    </SwissHeading>
-                    <Card className="border-none shadow-xl rounded-[24px] bg-[#283618] text-[#FEFAE0] h-auto relative overflow-hidden">
-                        {/* Decorative background glow */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#5C6836] opacity-20 blur-[80px] -mr-20 -mt-20"></div>
+                    </h2>
+                    <Card className="border border-border shadow-md rounded-[24px] bg-card text-foreground h-auto relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -mr-20 -mt-20"></div>
 
                         <CardContent className="pt-8 space-y-8 relative z-10">
 
                             <div className="flex gap-4 items-start group">
-                                <div className="bg-white/10 p-3 rounded-2xl text-[#C9C3A3] shrink-0 border border-white/5">
+                                <div className="bg-muted p-3 rounded-2xl text-foreground shrink-0 border border-border">
                                     <Bell className="w-5 h-5" />
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-start">
-                                        <p className="text-sm font-bold text-[#FEFAE0]">New Term Started</p>
-                                        <span className="text-[10px] text-[#A6835B] font-mono uppercase tracking-widest bg-[#A6835B]/10 px-1 rounded">NOW</span>
+                                        <p className="text-sm font-bold text-foreground">New Term Started</p>
+                                        <span className="text-[10px] text-primary font-mono uppercase tracking-widest bg-primary/10 px-1 rounded">NOW</span>
                                     </div>
-                                    <p className="text-xs text-[#C9C3A3] mt-1 leading-relaxed font-medium">Fall 2026 semester initialization complete. 0 errors.</p>
+                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed font-medium">Fall 2026 semester initialization complete. 0 errors.</p>
                                 </div>
                             </div>
 
                             <div className="flex gap-4 items-start group">
-                                <div className="bg-white/10 p-3 rounded-2xl text-[#C9C3A3] shrink-0 border border-white/5">
+                                <div className="bg-muted p-3 rounded-2xl text-foreground shrink-0 border border-border">
                                     <CheckCircle2 className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-[#FEFAE0]">Database Optimization</p>
-                                    <p className="text-xs text-[#C9C3A3] mt-1 leading-relaxed font-medium">Weekly maintenance finished. Query time reduced by 12%.</p>
-                                    <p className="text-[10px] text-[#5C6836] mt-2 font-mono uppercase tracking-widest">Yesterday</p>
+                                    <p className="text-sm font-bold text-foreground">Database Optimization</p>
+                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed font-medium">Weekly maintenance finished. Query time reduced by 12%.</p>
+                                    <p className="text-[10px] text-muted-foreground/60 mt-2 font-mono uppercase tracking-widest">Yesterday</p>
                                 </div>
                             </div>
 
                         </CardContent>
-                        <div className="absolute bottom-0 left-0 w-full h-1 bg-[#A6835B]/50"></div>
                     </Card>
                 </div>
             </div>

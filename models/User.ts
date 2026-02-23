@@ -16,6 +16,8 @@ export interface IUser extends Document {
     department?: string; // Optional (HOD/Faculty specific)
     mobile?: string;
     facultyType?: 'JUNIOR' | 'SENIOR';
+    facultyGroupId?: string;
+    facultyGroupName?: string; // Cache the name for fast queries/display
     isActive: boolean;
     lastLogin?: Date;
     createdAt: Date;
@@ -67,6 +69,14 @@ const UserSchema: Schema = new Schema({
     facultyType: {
         type: String,
         enum: ['JUNIOR', 'SENIOR'],
+        required: false
+    },
+    facultyGroupId: {
+        type: String,
+        required: false
+    },
+    facultyGroupName: {
+        type: String,
         required: false
     }
 }, {

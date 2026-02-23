@@ -6,6 +6,7 @@ import { createFacultyGroup } from '@/app/actions/faculty';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import { Loader2, X, Plus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 export default function CreateFacultyGroupForm() {
     const router = useRouter();
@@ -141,16 +142,13 @@ export default function CreateFacultyGroupForm() {
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground uppercase tracking-wider">Assigned Subjects</label>
                             <div className="flex gap-2 mb-3">
-                                <select
-                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
+                                <SearchableSelect
+                                    options={availableSubjects.map(sub => ({ value: sub.name, label: `${sub.name} (${sub.code})` }))}
                                     value={formData.currentSubject}
-                                    onChange={(e) => setFormData({ ...formData, currentSubject: e.target.value })}
-                                >
-                                    <option value="" disabled>Select Subject</option>
-                                    {availableSubjects.map(sub => (
-                                        <option key={sub._id} value={sub.name}>{sub.name} ({sub.code})</option>
-                                    ))}
-                                </select>
+                                    onValueChange={(val) => setFormData({ ...formData, currentSubject: val })}
+                                    placeholder="Select Subject"
+                                    className="flex-1"
+                                />
                                 <Button
                                     type="button"
                                     variant="secondary"
@@ -188,16 +186,13 @@ export default function CreateFacultyGroupForm() {
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Faculties</label>
                             <div className="flex gap-2 mb-3">
-                                <select
-                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
+                                <SearchableSelect
+                                    options={availableFaculties.map(fac => ({ value: fac.name, label: fac.name }))}
                                     value={formData.currentFaculty}
-                                    onChange={(e) => setFormData({ ...formData, currentFaculty: e.target.value })}
-                                >
-                                    <option value="" disabled>Select Faculty Member</option>
-                                    {availableFaculties.map(fac => (
-                                        <option key={fac.email} value={fac.name}>{fac.name}</option>
-                                    ))}
-                                </select>
+                                    onValueChange={(val) => setFormData({ ...formData, currentFaculty: val })}
+                                    placeholder="Select Faculty Member"
+                                    className="flex-1"
+                                />
                                 <Button
                                     type="button"
                                     variant="secondary"

@@ -12,15 +12,31 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 
 export default function UserManagementPage() {
     const [isLoading, setIsLoading] = useState(false);
+    const [users, setUsers] = useState<any[]>([]);
+    const [isEditing, setIsEditing] = useState(false);
 
     // Single User State
     const [singleUser, setSingleUser] = useState({
-        name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR'
+        _id: '', name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR', facultyGroupName: ''
     });
 
     // Bulk User State
     const [bulkData, setBulkData] = useState<any[]>([]);
     const [fileName, setFileName] = useState('');
+
+    React.useEffect(() => {
+        fetchUsers();
+    }, []);
+
+    const fetchUsers = async () => {
+        try {
+            const res = await fetch('/api/admin/users');
+            const data = await res.json();
+            if (data.success) setUsers(data.users);
+        } catch (error) {
+            console.error("Failed to fetch users", error);
+        }
+    };
 
     // --- Actions ---
 
@@ -28,22 +44,56 @@ export default function UserManagementPage() {
         e.preventDefault();
         setIsLoading(true);
         try {
+            const method = isEditing ? 'PUT' : 'POST';
+            const body = isEditing ? singleUser : { ...singleUser, _id: undefined };
+
             const res = await fetch('/api/admin/users', {
-                method: 'POST',
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(singleUser)
+                body: JSON.stringify(body)
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || "Failed to create user");
+            if (!res.ok) throw new Error(data.error || "Operation failed");
 
-            toast.success("User Created", { description: `${singleUser.name} added successfully.` });
-            setSingleUser({ name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR' }); // Reset
+            toast.success(isEditing ? "User Updated" : "User Created", { description: `${singleUser.name} ${isEditing ? 'updated' : 'added'} successfully.` });
+            setSingleUser({ _id: '', name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR', facultyGroupName: '' }); // Reset
+            setIsEditing(false);
+            fetchUsers();
         } catch (err: any) {
             toast.error("Error", { description: err.message });
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleDeleteUser = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this user?")) return;
+        try {
+            const res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error("Failed to delete");
+            toast.success("User Deleted");
+            fetchUsers();
+        } catch (err: any) {
+            toast.error("Error", { description: err.message });
+        }
+    };
+
+    const handleEditUser = (user: any) => {
+        setSingleUser({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            password: '', // Leave blank to keep existing
+            role: user.role,
+            department: user.department || '',
+            mobile: user.mobile || '',
+            facultyType: user.facultyType || 'JUNIOR',
+            facultyGroupName: user.facultyGroupName || ''
+        });
+        setIsEditing(true);
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +128,8 @@ export default function UserManagementPage() {
                 role: (row.Role || row.role || 'FACULTY').toUpperCase(),
                 department: row.Department || row.department,
                 mobile: String(row.Mobile || row.mobile || ''),
-                facultyType: (row.Type || row.type || row["Faculty Type"] || 'JUNIOR').toUpperCase()
+                facultyType: (row.Type || row.type || row["Faculty Type"] || 'JUNIOR').toUpperCase(),
+                facultyGroupName: row.Class || row.class || row.Group || row.group || row["Faculty Group"] || ""
             }));
 
             const res = await fetch('/api/admin/users', {
@@ -97,6 +148,7 @@ export default function UserManagementPage() {
             if (data.createdCount > 0) {
                 setBulkData([]);
                 setFileName('');
+                fetchUsers();
             }
 
         } catch (err: any) {
@@ -113,173 +165,224 @@ export default function UserManagementPage() {
                 <div>
                     <SwissSubHeading className="mb-1 text-primary">Administration</SwissSubHeading>
                     <SwissHeading>User Management</SwissHeading>
-                    <p className="text-muted-foreground mt-2">Add faculty, students, or staff to the platform.</p>
+                    <p className="text-muted-foreground mt-2">Add, edit, or remove faculty, students, and staff.</p>
                 </div>
 
-                <Tabs defaultValue="single" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 max-w-md">
-                        <TabsTrigger value="single">Single Entry</TabsTrigger>
-                        <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
-                    </TabsList>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left Column: Forms */}
+                    <div className="lg:col-span-1">
+                        <Tabs defaultValue="single" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="single">{isEditing ? 'Edit User' : 'New User'}</TabsTrigger>
+                                <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
+                            </TabsList>
 
-                    {/* --- Single User Form --- */}
-                    <TabsContent value="single">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Add New User</CardTitle>
-                                <CardDescription>Manually create a single account.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form onSubmit={handleSingleSubmit} className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Full Name</label>
-                                        <Input
-                                            placeholder="Dr. John Doe"
-                                            value={singleUser.name}
-                                            onChange={e => setSingleUser({ ...singleUser, name: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Email / ID</label>
-                                        <Input
-                                            type="email"
-                                            placeholder="john.doe@university.edu"
-                                            value={singleUser.email}
-                                            onChange={e => setSingleUser({ ...singleUser, email: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Role</label>
-                                        <Select
-                                            value={singleUser.role}
-                                            onValueChange={val => setSingleUser({ ...singleUser, role: val })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="FACULTY">Faculty</SelectItem>
-                                                <SelectItem value="STUDENT">Student</SelectItem>
-                                                <SelectItem value="HOD">HOD</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {singleUser.role === 'FACULTY' && (
-                                        <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                                            <label className="text-sm font-medium">Faculty Type</label>
-                                            <Select
-                                                value={singleUser.facultyType}
-                                                onValueChange={val => setSingleUser({ ...singleUser, facultyType: val })}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select Type" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="JUNIOR">Junior Faculty</SelectItem>
-                                                    <SelectItem value="SENIOR">Senior Faculty</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    )}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Department</label>
-                                        <Input
-                                            placeholder="Computer Science"
-                                            value={singleUser.department}
-                                            onChange={e => setSingleUser({ ...singleUser, department: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Default Password</label>
-                                        <Input
-                                            type="password"
-                                            value={singleUser.password}
-                                            onChange={e => setSingleUser({ ...singleUser, password: e.target.value })}
-                                            placeholder="Min. 6 characters"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="flex items-end">
-                                        <Button className="w-full" disabled={isLoading}>
-                                            {isLoading ? <Loader2 className="animate-spin mr-2" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                                            Create Account
-                                        </Button>
-                                    </div>
-                                </form>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    {/* --- Bulk Upload Form --- */}
-                    <TabsContent value="bulk">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Bulk Import</CardTitle>
-                                <CardDescription>Upload an Excel (.xlsx) or CSV file with columns: Name, Email, Password, Role, Department.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors">
-                                    <FileSpreadsheet className="h-10 w-10 text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold mb-1">Drag and drop or click to upload</h3>
-                                    <p className="text-sm text-muted-foreground mb-4">Support .xlsx, .xls, .csv</p>
-                                    <Input
-                                        type="file"
-                                        accept=".xlsx, .xls, .csv"
-                                        className="max-w-xs"
-                                        onChange={handleFileUpload}
-                                    />
-                                </div>
-
-                                {bulkData.length > 0 && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                                        <div className="flex items-center justify-between bg-muted/30 p-4 rounded-md border">
-                                            <div className="flex items-center gap-3">
-                                                <CheckCircle className="text-green-500 h-5 w-5" />
-                                                <div>
-                                                    <p className="font-medium text-sm">Ready to import {bulkData.length} users</p>
-                                                    <p className="text-xs text-muted-foreground">Source: {fileName}</p>
-                                                </div>
+                            {/* --- Single User Form --- */}
+                            <TabsContent value="single">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>{isEditing ? 'Update User' : 'Add New User'}</CardTitle>
+                                        <CardDescription>{isEditing ? `Editing ${singleUser.name}` : 'Manually create account.'}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <form onSubmit={handleSingleSubmit} className="space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Full Name</label>
+                                                <Input
+                                                    placeholder="Dr. John Doe"
+                                                    value={singleUser.name}
+                                                    onChange={e => setSingleUser({ ...singleUser, name: e.target.value })}
+                                                    required
+                                                />
                                             </div>
-                                            <Button onClick={handleBulkSubmit} disabled={isLoading}>
-                                                {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Upload className="mr-2 h-4 w-4" />}
-                                                Start Import
-                                            </Button>
-                                        </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Email / ID</label>
+                                                <Input
+                                                    type="email"
+                                                    placeholder="john.doe@university.edu"
+                                                    value={singleUser.email}
+                                                    onChange={e => setSingleUser({ ...singleUser, email: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Role</label>
+                                                <Select
+                                                    value={singleUser.role}
+                                                    onValueChange={val => setSingleUser({ ...singleUser, role: val })}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="FACULTY">Faculty</SelectItem>
+                                                        <SelectItem value="STUDENT">Student</SelectItem>
+                                                        <SelectItem value="HOD">HOD</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
 
-                                        <div className="max-h-60 overflow-auto border rounded-md">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-muted sticky top-0">
-                                                    <tr>
-                                                        <th className="p-2 text-left font-medium">Name</th>
-                                                        <th className="p-2 text-left font-medium">Email</th>
-                                                        <th className="p-2 text-left font-medium">Role</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {bulkData.slice(0, 50).map((row: any, i) => (
-                                                        <tr key={i} className="border-t hover:bg-muted/20">
-                                                            <td className="p-2">{row.Name || row.name}</td>
-                                                            <td className="p-2">{row.Email || row.email}</td>
-                                                            <td className="p-2">{row.Role || row.role}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            {bulkData.length > 50 && (
-                                                <div className="p-2 text-center text-xs text-muted-foreground bg-muted/10">
-                                                    And {bulkData.length - 50} more...
+                                            {singleUser.role === 'FACULTY' && (
+                                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                                    <label className="text-sm font-medium">Faculty Type</label>
+                                                    <Select
+                                                        value={singleUser.facultyType}
+                                                        onValueChange={val => setSingleUser({ ...singleUser, facultyType: val })}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select Type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="JUNIOR">Junior Faculty</SelectItem>
+                                                            <SelectItem value="SENIOR">Senior Faculty</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             )}
+
+                                            {singleUser.role === 'STUDENT' && (
+                                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                                    <label className="text-sm font-medium">Class / Faculty Group</label>
+                                                    <Input
+                                                        placeholder="e.g. 7CSE3"
+                                                        value={singleUser.facultyGroupName}
+                                                        onChange={e => setSingleUser({ ...singleUser, facultyGroupName: e.target.value })}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Department</label>
+                                                <Input
+                                                    placeholder="Computer Science"
+                                                    value={singleUser.department}
+                                                    onChange={e => setSingleUser({ ...singleUser, department: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">{isEditing ? 'New Password (Optional)' : 'Default Password'}</label>
+                                                <Input
+                                                    type="password"
+                                                    value={singleUser.password}
+                                                    onChange={e => setSingleUser({ ...singleUser, password: e.target.value })}
+                                                    placeholder={isEditing ? "Leave blank to keep current" : "Min. 6 characters"}
+                                                    required={!isEditing}
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-2 pt-2">
+                                                <Button className="w-full" disabled={isLoading}>
+                                                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                                                    {isEditing ? 'Update Role' : 'Create Account'}
+                                                </Button>
+                                                {isEditing && (
+                                                    <Button variant="outline" type="button" onClick={() => { setIsEditing(false); setSingleUser({ _id: '', name: '', email: '', password: '', role: 'FACULTY', department: '', mobile: '', facultyType: 'JUNIOR', facultyGroupName: '' }); }}>
+                                                        Cancel Edit
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </form>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            {/* --- Bulk Upload Form --- */}
+                            <TabsContent value="bulk">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Bulk Import</CardTitle>
+                                        <CardDescription>Upload Excel/CSV.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors">
+                                            <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                                            <Input
+                                                type="file"
+                                                accept=".xlsx, .xls, .csv"
+                                                className="max-w-xs"
+                                                onChange={handleFileUpload}
+                                            />
                                         </div>
-                                    </div>
-                                )}
+
+                                        {bulkData.length > 0 && (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span>{bulkData.length} records found</span>
+                                                    <Button size="sm" onClick={handleBulkSubmit} disabled={isLoading}>
+                                                        Import
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+
+                    {/* Right Column: User List */}
+                    <div className="lg:col-span-2">
+                        <Card className="h-full">
+                            <CardHeader>
+                                <CardTitle>Existing Users</CardTitle>
+                                <CardDescription>List of all registered users in the system.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-md border h-[600px] overflow-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted sticky top-0 z-10">
+                                            <tr>
+                                                <th className="p-3 text-left font-medium">Name</th>
+                                                <th className="p-3 text-left font-medium">Role</th>
+                                                <th className="p-3 text-left font-medium">Dept / Class</th>
+                                                <th className="p-3 text-right font-medium">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {users.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                                                        No users found. Create one.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                users.map((user) => (
+                                                    <tr key={user._id} className="border-t hover:bg-muted/20 transition-colors">
+                                                        <td className="p-3">
+                                                            <div className="font-medium">{user.name}</div>
+                                                            <div className="text-xs text-muted-foreground">{user.email}</div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+                                                                user.role === 'HOD' ? 'bg-blue-100 text-blue-800' :
+                                                                    'bg-gray-100 text-gray-800'
+                                                                }`}>
+                                                                {user.role}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-muted-foreground">
+                                                            <div>{user.department || '-'}</div>
+                                                            {user.role === 'STUDENT' && user.facultyGroupName && (
+                                                                <div className="text-xs font-semibold text-primary">{user.facultyGroupName}</div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 text-right space-x-2">
+                                                            <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
+                                                                Edit
+                                                            </Button>
+                                                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteUser(user._id)}>
+                                                                Delete
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </CardContent>
                         </Card>
-                    </TabsContent>
-                </Tabs>
+                    </div>
+                </div>
             </div>
         </DashboardLayout>
     );

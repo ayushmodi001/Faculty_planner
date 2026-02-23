@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import FacultyGroup from '@/models/FacultyGroup';
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 
 export async function GET(req: NextRequest) {
     // Single Item Get if ID provided
@@ -33,9 +34,12 @@ export async function PUT(req: NextRequest) {
         const updated = await FacultyGroup.findByIdAndUpdate(id, {
             name: body.name,
             subjects: body.subjects,
-            members: body.members
+            members: body.members,
+            termStartDate: body.termStartDate,
+            termEndDate: body.termEndDate
         }, { new: true });
 
+        revalidatePath('/admin/faculty');
         return NextResponse.json({ success: true, group: updated });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -51,6 +55,7 @@ export async function DELETE(req: NextRequest) {
         if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
         await FacultyGroup.findByIdAndDelete(id);
+        revalidatePath('/admin/faculty');
         return NextResponse.json({ success: true });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

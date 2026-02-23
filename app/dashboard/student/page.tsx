@@ -2,8 +2,83 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
 import { ArrowRight, Book, Calendar, CheckCircle2, GraduationCap, TrendingUp, BookOpen, Clock } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
+import User from '@/models/User';
+import FacultyGroup from '@/models/FacultyGroup';
+import Plan from '@/models/Plan';
+import dbConnect from '@/lib/db';
 
-export default function StudentDashboard() {
+export const dynamic = 'force-dynamic';
+
+export default async function StudentDashboard() {
+    await dbConnect();
+
+    // --- Fetch User Context ---
+    const cookieStore = await cookies();
+    const token = cookieStore.get('session')?.value;
+    let studentGroup = "Unassigned";
+    let nextClass: any = null;
+    let courseProgress: any[] = [];
+
+    if (token) {
+        const session = await verifyJWT(token);
+        if (session) {
+            const user = await User.findById(session.id).lean();
+            if (user && user.facultyGroupId) {
+                const group = await FacultyGroup.findById(user.facultyGroupId).lean();
+                if (group) {
+                    studentGroup = group.name;
+
+                    // --- Get Next Class logic ---
+                    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const todayStr = days[new Date().getDay()];
+                    const todaySlots = group.timetable?.[todayStr] || [];
+
+                    // Simple logic: just grab the first slot of the day as "Next Class" for demo purposes, 
+                    // or sort by time.
+                    if (todaySlots.length > 0) {
+                        nextClass = todaySlots[0];
+                    }
+
+                    // --- Get Progress Logic ---
+                    const plans = await Plan.find({ faculty_id: group._id }).lean();
+                    const subjectsFound = new Set();
+                    plans.forEach((p: any) => {
+                        if (!subjectsFound.has(p.subject)) {
+                            subjectsFound.add(p.subject);
+                            const total = p.syllabus_topics?.length || 0;
+                            const completed = p.syllabus_topics?.filter((t: any) => t.completion_status === 'DONE').length || 0;
+                            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+                            courseProgress.push({
+                                subject: p.subject,
+                                progress: percent
+                            });
+                        }
+                    });
+
+                    // Pad with group's subjects if no plans generated yet
+                    (group.subjects || []).forEach((subj: string) => {
+                        if (!subjectsFound.has(subj)) {
+                            courseProgress.push({ subject: subj, progress: 0 });
+                        }
+                    });
+                } else if (user.facultyGroupName) {
+                    studentGroup = user.facultyGroupName;
+                }
+            }
+        }
+    }
+
+    // Colors sequence for UI
+    const colors = [
+        { color: "bg-[#283618]", text: "text-[#FEFAE0]" },
+        { color: "bg-[#A6835B]", text: "text-white" },
+        { color: "bg-[#5C6836]", text: "text-white" },
+        { color: "bg-[#C9C3A3]", text: "text-[#283618]" }
+    ];
+
     return (
         <DashboardLayout role="Student">
             {/* Header Section */}
@@ -13,7 +88,7 @@ export default function StudentDashboard() {
                         Student Portal
                     </span>
                     <span className="px-3 py-1 rounded-full bg-[#283618] text-[#FEFAE0] text-xs font-bold uppercase tracking-wider border border-[#283618]">
-                        Sem 5 • Sec A
+                        {studentGroup}
                     </span>
                 </div>
                 <SwissHeading className="text-4xl md:text-6xl mb-4 text-[#283618] tracking-tight">
@@ -35,20 +110,31 @@ export default function StudentDashboard() {
                             <Badge className="bg-[#A6835B] text-white border-none mb-3 animate-pulse">Now / Next</Badge>
                             <Clock className="w-5 h-5 text-[#C9C3A3]" />
                         </div>
-                        <CardTitle className="text-3xl md:text-4xl font-black tracking-tight text-white">Applied Mathematics</CardTitle>
+                        <CardTitle className="text-3xl md:text-4xl font-black tracking-tight text-white">
+                            {nextClass ? nextClass.subject : "No Classes Scheduled Today"}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="relative z-10">
-                        <p className="text-[#C9C3A3] mb-6 font-medium text-lg">Topic: Eigenvalues and Eigenvectors</p>
-                        <div className="flex gap-6 text-sm font-bold uppercase tracking-wide text-[#E9E5D0]">
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-[#A6835B]"></span>
-                                10:30 AM
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-[#5C6836]"></span>
-                                Lecture Hall 4
-                            </div>
-                        </div>
+                        {nextClass && (
+                            <>
+                                <p className="text-[#C9C3A3] mb-6 font-medium text-lg">
+                                    {nextClass.faculty ? `Prof. ${nextClass.faculty}` : "Standard Lecture"}
+                                </p>
+                                <div className="flex gap-6 text-sm font-bold uppercase tracking-wide text-[#E9E5D0]">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-[#A6835B]"></span>
+                                        {nextClass.startTime} - {nextClass.endTime}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-[#5C6836]"></span>
+                                        {nextClass.room || 'TBD'}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                        {!nextClass && (
+                            <p className="text-[#C9C3A3] font-medium text-lg">Enjoy your free time or use it for self-study.</p>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -124,27 +210,31 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    {[
-                        { subject: "Data Structures", progress: 75, color: "bg-[#283618]", text: "text-[#FEFAE0]" },
-                        { subject: "Operating Systems", progress: 60, color: "bg-[#A6835B]", text: "text-white" },
-                        { subject: "Computer Networks", progress: 45, color: "bg-[#5C6836]", text: "text-white" },
-                        { subject: "DBMS", progress: 90, color: "bg-[#C9C3A3]", text: "text-[#283618]" }
-                    ].map((course, i) => (
-                        <div key={i} className="bg-white border border-[#C9C3A3]/20 rounded-[20px] p-5 flex items-center gap-5 shadow-sm hover:shadow-md transition-shadow group">
-                            <div className={`p-4 rounded-2xl ${course.color} ${course.text} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
-                                <Book className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between mb-2 items-end">
-                                    <span className="font-bold text-lg text-[#283618]">{course.subject}</span>
-                                    <span className="text-sm font-bold text-[#A6835B] bg-[#FEFAE0] px-2 py-0.5 rounded-md">{course.progress}%</span>
+                    {courseProgress.length > 0 ? (
+                        courseProgress.map((course, i) => {
+                            const colorTheme = colors[i % colors.length];
+                            return (
+                                <div key={i} className="bg-white border border-[#C9C3A3]/20 rounded-[20px] p-5 flex items-center gap-5 shadow-sm hover:shadow-md transition-shadow group">
+                                    <div className={`p-4 rounded-2xl ${colorTheme.color} ${colorTheme.text} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                                        <Book className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between mb-2 items-end">
+                                            <span className="font-bold text-lg text-[#283618]">{course.subject}</span>
+                                            <span className="text-sm font-bold text-[#A6835B] bg-[#FEFAE0] px-2 py-0.5 rounded-md">{course.progress}%</span>
+                                        </div>
+                                        <div className="h-2.5 w-full bg-[#E9E5D0] rounded-full overflow-hidden">
+                                            <div className={`h-full ${colorTheme.color} rounded-full`} style={{ width: `${course.progress}%` }}></div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="h-2.5 w-full bg-[#E9E5D0] rounded-full overflow-hidden">
-                                    <div className={`h-full ${course.color} rounded-full`} style={{ width: `${course.progress}%` }}></div>
-                                </div>
-                            </div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-full p-8 text-center border border-dashed border-[#C9C3A3] rounded-2xl bg-[#E9E5D0]/30 text-[#5C6836]">
+                            No subjects to track yet.
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
 

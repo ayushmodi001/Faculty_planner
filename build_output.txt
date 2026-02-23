@@ -1,0 +1,24 @@
+
+> uaps@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 12.1s
+  Running TypeScript ...
+Failed to compile.
+
+./app/admin/timetable/TimetableEditor.tsx:223:50
+Type error: Conversion of type 'ObjectId' to type 'string' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+
+  221 |                         <SelectContent>
+  222 |                             {facultyGroups.map(g => (
+> 223 |                                 <SelectItem key={g._id as string} value={g._id as string}>{g.name}</SelectItem>
+      |                                                  ^
+  224 |                             ))}
+  225 |                         </SelectContent>
+  226 |                     </Select>
+Next.js build worker exited with code: 1 and signal: null

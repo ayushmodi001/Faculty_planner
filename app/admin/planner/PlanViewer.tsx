@@ -186,13 +186,18 @@ export default function PlanViewer({ plan }: PlanViewerProps) {
                                 <div key={tIdx} className="bg-card border rounded-md p-4 flex items-start justify-between group hover:border-primary/50 transition-colors">
                                     <div className="flex-1">
                                         <p className="font-medium text-sm text-foreground">{topic.title}</p>
-                                        <div className="flex items-center gap-2 mt-2">
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
                                             {topic.is_self_study ? (
                                                 <Badge variant="warning" className="text-[10px] px-1 py-0 h-5">Self Study</Badge>
                                             ) : (
-                                                <Badge className="text-[10px] px-1 py-0 h-5 bg-slate-100 text-slate-700 hover:bg-slate-200 border-none">Lecture</Badge>
+                                                <Badge className="text-[10px] px-1 py-0 h-5 bg-slate-100 text-slate-700 hover:bg-slate-200 border-none text-nowrap">Lecture</Badge>
                                             )}
-                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            {topic.scheduled_date && !topic.is_self_study && (
+                                                <span className="text-xs text-primary font-medium flex items-center gap-1 border-l pl-2 border-border text-nowrap mt-1 sm:mt-0">
+                                                    <Calendar className="w-3 h-3" /> {format(new Date(topic.scheduled_date), 'MMM d, yyyy h:mm a')}
+                                                </span>
+                                            )}
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1 border-l pl-2 border-border text-nowrap mt-1 sm:mt-0">
                                                 <Clock className="w-3 h-3" /> {topic.duration_mins} mins
                                             </span>
                                         </div>

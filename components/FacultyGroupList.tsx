@@ -35,7 +35,7 @@ export default function FacultyGroupList({ groups }: FacultyGroupListProps) {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {groups.map((group) => (
-                        <NeoCard key={group._id as string} hoverEffect className="bg-white">
+                        <NeoCard key={group._id as unknown as string} hoverEffect className="bg-white">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="bg-black text-white px-3 py-1 font-mono text-xs font-bold uppercase rotate-[-2deg]">
                                     {group.subjects.length} Subjects
@@ -59,7 +59,7 @@ export default function FacultyGroupList({ groups }: FacultyGroupListProps) {
                             </div>
 
                             <div className="border-t-2 border-dashed border-gray-300 pt-4 mt-4 flex justify-between items-center text-xs font-mono text-gray-600">
-                                <span>Created: {new Date(group.createdAt as any).toLocaleDateString()}</span>
+                                <span>Created: {new Date((group as any).createdAt).toLocaleDateString()}</span>
                                 <span className="bg-green-100 text-green-800 px-2 py-0.5 border border-green-800 rounded-full">
                                     Active
                                 </span>

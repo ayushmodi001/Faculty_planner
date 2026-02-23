@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
 
             for (const slot of slots) {
                 // Fuzzy Name Match
-                if (slot.faculty && slot.faculty.toLowerCase() === facultyName.toLowerCase()) {
+                const isMySlot = slot.faculty && slot.faculty.toLowerCase() === facultyName.toLowerCase();
+                const isEmptySlot = !slot.faculty; // Completely unallocated slot
 
+                if (isMySlot) {
                     // Found a slot! Now find the Topic.
                     // 4. Find Active Plan for this Group + Subject
                     let topicName = "Topic not scheduled";
@@ -60,18 +62,22 @@ export async function GET(req: NextRequest) {
 
                         if (plan) {
                             isPlanActive = true;
-                            // Find topic for today
-                            // We compare dates YYYY-MM-DD
+                            // Find topic for today that matches EXACT TIME
                             const todayStr = format(today, 'yyyy-MM-dd');
-                            const todayTopic = plan.syllabus_topics.find((t: ITopic) =>
-                                t.scheduled_date &&
-                                new Date(t.scheduled_date).toISOString().split('T')[0] === todayStr
-                            );
+                            const targetTimeStr = slot.startTime; // e.g., "09:00"
+
+                            const todayTopic = plan.syllabus_topics.find((t: ITopic) => {
+                                if (!t.scheduled_date) return false;
+                                const dateObj = new Date(t.scheduled_date);
+                                const isSameDay = format(dateObj, 'yyyy-MM-dd') === todayStr;
+                                const isSameTime = format(dateObj, 'HH:mm') === targetTimeStr;
+                                return isSameDay && isSameTime;
+                            });
 
                             if (todayTopic) {
                                 topicName = todayTopic.name;
                             } else {
-                                topicName = "No topic scheduled for today";
+                                topicName = "No active topic scheduled (Check Term Dates / Plan Budget)";
                             }
                         } else {
                             topicName = "No active plan found";
@@ -88,6 +94,19 @@ export async function GET(req: NextRequest) {
                         room: slot.room || "TBD",
                         topic: topicName,
                         isPlanActive
+                    });
+                } else if (isEmptySlot) {
+                    // Include empty slots as requested
+                    mySlots.push({
+                        id: `${group._id}-${slot.startTime}-empty`, // Unique key
+                        startTime: slot.startTime,
+                        endTime: slot.endTime,
+                        formattedTime: `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`,
+                        subject: "No lecture allocated",
+                        groupName: group.name,
+                        room: slot.room || "-",
+                        topic: "Free Slot",
+                        isPlanActive: false
                     });
                 }
             }

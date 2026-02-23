@@ -1,0 +1,24 @@
+
+> uaps@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 8.9s
+  Running TypeScript ...
+Failed to compile.
+
+./components/CalendarManager.tsx:5:10
+Type error: Module '"@/app/actions/calendar"' has no exported member 'saveCalendar'.
+
+  3 | import React, { useState } from 'react';
+  4 | import { Layers, Loader2, Calendar as CalendarIcon, Trash2, Plus } from 'lucide-react';
+> 5 | import { saveCalendar } from '@/app/actions/calendar';
+    |          ^
+  6 | import { Toaster, toast } from 'sonner';
+  7 | import { Calendar } from "@/components/ui/calendar"
+  8 | import { Button } from "@/components/ui/button"
+Next.js build worker exited with code: 1 and signal: null

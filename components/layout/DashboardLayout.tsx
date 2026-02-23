@@ -23,37 +23,36 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
 
     return (
         <div className="min-h-screen flex flex-col font-sans bg-background text-foreground transition-colors duration-300">
-            {/* Navigation Bar - Consistent across all pages */}
-            <nav className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-50">
-                <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        {!isMainDashboard && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => router.back()}
-                                className="mr-2 rounded-full h-8 w-8 p-0"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                            </Button>
-                        )}
+            {/* Modern Navigation Bar */}
+            <nav className="sticky top-0 z-50 px-4 pt-4 pb-2">
+                <div className="container mx-auto max-w-7xl">
+                    <div className="h-16 flex items-center justify-between bg-background/80 backdrop-blur-xl border border-border/50 shadow-sm rounded-2xl px-6 transition-all duration-300">
+                        <div className="flex items-center gap-4">
+                            {!isMainDashboard && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => router.back()}
+                                    className="mr-1 rounded-full hover:bg-muted"
+                                >
+                                    <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+                                </Button>
+                            )}
 
-                        <Link href={`/dashboard/${role.toLowerCase()}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                            <Logo />
-                            <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider shadow-sm">
-                                {role} Portal
-                            </span>
-                        </Link>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-muted rounded-full border text-xs font-bold text-muted-foreground">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                            {role || 'User'} Mode
+                            <Link href={`/dashboard/${role.toLowerCase()}`} className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+                                <Logo />
+                                <span className="px-3 py-1 pb-1.5 rounded-full bg-foreground text-background text-[10px] font-bold uppercase tracking-widest shadow-sm flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                    {role} Portal
+                                </span>
+                            </Link>
                         </div>
 
-                        <ModeToggle />
-                        <LogoutButton />
+                        <div className="flex items-center gap-3">
+                            <ModeToggle />
+                            <div className="h-6 w-px bg-border/50 mx-1"></div>
+                            <LogoutButton />
+                        </div>
                     </div>
                 </div>
             </nav>

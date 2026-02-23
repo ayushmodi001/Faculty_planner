@@ -3,12 +3,35 @@ import React from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import PlannerInterface from '@/app/admin/planner/PlannerInterface';
-import { getAllFacultyGroups } from '@/app/actions/faculty';
 import { IFacultyGroup } from '@/models/FacultyGroup';
+import { getAllFacultyGroups } from '@/app/actions/faculty';
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
+import User from '@/models/User';
+import dbConnect from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export default async function StudentPlannerPage() {
+    let defaultGroupId = "";
+
+    try {
+        await dbConnect();
+        const cookieStore = await cookies();
+        const token = cookieStore.get('session')?.value;
+        if (token) {
+            const session = await verifyJWT(token);
+            if (session) {
+                const user = await User.findById(session.id).lean();
+                if (user && user.facultyGroupId) {
+                    defaultGroupId = user.facultyGroupId;
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching student group", err);
+    }
+
     const result = await getAllFacultyGroups();
     const facultyGroups = result.success ? (result.data as IFacultyGroup[]) : [];
 
@@ -23,7 +46,11 @@ export default async function StudentPlannerPage() {
             </div>
 
             <div className="max-w-7xl mx-auto animate-in fade-in duration-700 delay-100">
-                <PlannerInterface facultyGroups={JSON.parse(JSON.stringify(facultyGroups))} readOnly={true} />
+                <PlannerInterface
+                    facultyGroups={JSON.parse(JSON.stringify(facultyGroups))}
+                    readOnly={true}
+                    defaultGroupId={defaultGroupId}
+                />
             </div>
         </DashboardLayout>
     )

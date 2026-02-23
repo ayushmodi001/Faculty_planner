@@ -4,6 +4,7 @@ export interface ICalendarEvent extends Document {
     title: string;
     description?: string;
     date: Date;
+    endDate?: Date;
     type: 'HOLIDAY' | 'EXAM' | 'EVENT' | 'DEADLINE';
     createdBy: mongoose.Types.ObjectId; // Principal ID
 }
@@ -13,6 +14,7 @@ const CalendarEventSchema = new Schema<ICalendarEvent>(
         title: { type: String, required: true },
         description: { type: String },
         date: { type: Date, required: true },
+        endDate: { type: Date },
         type: {
             type: String,
             enum: ['HOLIDAY', 'EXAM', 'EVENT', 'DEADLINE'],

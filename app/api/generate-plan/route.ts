@@ -9,6 +9,7 @@ import Plan from '@/models/Plan';
 import { calculateAvailableSlots } from '@/utils/availability';
 import { AIPlanResponseSchema } from '../../../models/AIOutputSchema';
 import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
+import User from '@/models/User';
 
 // Initialize OpenRouter (OpenAI compatible SDK)
 const getOpenAI = () => {
@@ -24,10 +25,9 @@ const getOpenAI = () => {
 
 const InputSchema = z.object({
     facultyGroupId: z.string(),
-    startDate: z.string(), // YYYY-MM-DD
-    endDate: z.string(),   // YYYY-MM-DD
     syllabusText: z.string().min(50),
     subject: z.string(),
+    facultyName: z.string().optional()
 });
 
 export async function POST(req: NextRequest) {
@@ -36,8 +36,7 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
 
         // 1. Validate Input
-        const { facultyGroupId, startDate, endDate, syllabusText, subject } = InputSchema.parse(body);
-        const year = new Date(startDate).getFullYear();
+        const { facultyGroupId, syllabusText, subject, facultyName } = InputSchema.parse(body);
 
         // 2. Fetch Context Data
         const facultyGroup = await FacultyGroup.findById(facultyGroupId).lean();
@@ -45,6 +44,14 @@ export async function POST(req: NextRequest) {
             console.log(`[Planner Error] FacultyGroup not found: ${facultyGroupId}`);
             return NextResponse.json({ error: 'Faculty Group not found' }, { status: 404 });
         }
+
+        if (!facultyGroup.termStartDate || !facultyGroup.termEndDate) {
+            return NextResponse.json({ error: 'Faculty Group has no term dates configured.' }, { status: 400 });
+        }
+
+        const startDate = new Date(facultyGroup.termStartDate).toISOString().split('T')[0];
+        const endDate = new Date(facultyGroup.termEndDate).toISOString().split('T')[0];
+        const year = new Date(startDate).getFullYear();
 
         let calendar = await AcademicCalendar.findOne({ year }).lean();
 
@@ -58,10 +65,25 @@ export async function POST(req: NextRequest) {
             };
         }
 
-        // Fetch dynamic holidays from CalendarEvent system (Admin managed)
+        // Fetch Dynamic Holidays (and expand ranges)
         const dynamicHolidayEvents = await CalendarEvent.find({ type: 'HOLIDAY' }).lean();
-        const dynamicHolidays = dynamicHolidayEvents.map(e => e.date);
-        console.log(`[Planner] Found ${dynamicHolidays.length} dynamic holidays.`);
+        const dynamicHolidays: Date[] = [];
+
+        dynamicHolidayEvents.forEach((e: any) => {
+            const start = new Date(e.date);
+            dynamicHolidays.push(new Date(start)); // Add start date
+
+            if (e.endDate) {
+                const end = new Date(e.endDate);
+                const curr = new Date(start);
+                // Loop to add subsequent days
+                while (curr < end) {
+                    curr.setDate(curr.getDate() + 1);
+                    dynamicHolidays.push(new Date(curr));
+                }
+            }
+        });
+        console.log(`[Planner] Expanded to ${dynamicHolidays.length} holiday dates from ${dynamicHolidayEvents.length} events.`);
 
         // Debug: Check timetable structure
         console.log(`[Planner] Faculty Group: ${facultyGroup.name}, Timetable keys: ${Object.keys(facultyGroup.timetable || {}).join(', ')}`);
@@ -85,38 +107,79 @@ export async function POST(req: NextRequest) {
         console.log(`[Planner] Calculated Total Slots: ${totalSlots} between ${startDate} and ${endDate}`);
 
         if (totalSlots === 0) {
-            const hasTermDates = facultyGroup.termStartDate || facultyGroup.termEndDate;
-            return NextResponse.json({
-                error: `No available slots found. Check if the Faculty Group has a timetable for the requested days (${startDate} to ${endDate}), or if the dates fall outside the configured Term (${facultyGroup.termStartDate ? new Date(facultyGroup.termStartDate).toLocaleDateString() : 'N/A'} - ${facultyGroup.termEndDate ? new Date(facultyGroup.termEndDate).toLocaleDateString() : 'N/A'}).`
-            }, { status: 400 });
+            // DIAGNOSTIC STEP: Check if slots exist *without* subject filter
+            const { totalSlots: anySlots, schedule: anySchedule } = calculateAvailableSlots(
+                new Date(startDate),
+                new Date(endDate),
+                facultyGroup as any,
+                calendar as any,
+                undefined, // No subject filter
+                dynamicHolidays
+            );
+
+            if (anySlots > 0) {
+                // Slots exist, but not for this subject
+                const availableSubjects = new Set();
+                anySchedule.forEach(day => day.slots.forEach(s => s.subject && availableSubjects.add(s.subject)));
+                const subjectList = Array.from(availableSubjects).join(", ");
+
+                return NextResponse.json({
+                    error: `No slots found for subject "${subject}" in the timetable between ${startDate} and ${endDate}. The timetable has slots configured for: [${subjectList || 'Unknown'}]. Please update the Faculty Group Timetable to include "${subject}".`
+                }, { status: 400 });
+            } else {
+                // No slots exist at all (Term dates or Holidays)
+                const termInfo = facultyGroup.termStartDate && facultyGroup.termEndDate
+                    ? `(Term: ${new Date(facultyGroup.termStartDate).toLocaleDateString()} - ${new Date(facultyGroup.termEndDate).toLocaleDateString()})`
+                    : '(No term limits configured)';
+
+                return NextResponse.json({
+                    error: `No teaching slots available for this Faculty Group in the requested range ${startDate} to ${endDate}. Check: 1) The Term Dates ${termInfo} cover this range. 2) The Timetable has slots defined for weekdays. 3) The range isn't entirely holidays.`
+                }, { status: 400 });
+            }
         }
 
-        // 4. Construct Prompt for AI
-        const systemPrompt = `
-      You are an expert Academic Planner for a University.
-      Your goal is to parse a raw syllabus and map it into a strictly sequential list of lecture topics.
+        // 4. Construct Prompt Elements
+        let facultyContext = "";
+        if (facultyName) {
+            const user = await User.findOne({ name: facultyName }).lean();
+            if (user) {
+                if (user.role === 'HOD') {
+                    facultyContext = "\n      FACULTY PROFILE [HOD]: The assigned faculty is a Head of Department with high experience. Optimize the schedule tightly and concisely. They teach efficiently without the need for large buffers.";
+                } else if (user.facultyType === 'JUNIOR') {
+                    facultyContext = "\n      FACULTY PROFILE [JUNIOR FACULTY]: The assigned faculty is a Junior member. They are often slower in teaching and inconsistent with pacing. **CRITICAL REQUIREMENT:** You MUST add extra buffer times/self-study sections to account for delays. Under NO circumstances should you tightly pack this schedule. It is highly recommended to assign MULTIPLE smaller topics to a single day (e.g., if you have wiggle room, compress theory but leave blank buffer slots, or add 'Revision / Buffer' topics) so they have room to breathe.";
+                } else if (user.facultyType === 'SENIOR') {
+                    facultyContext = "\n      FACULTY PROFILE [SENIOR FACULTY]: The assigned faculty is a Senior member. They are experienced and stick to the schedule. Maintain standard spacing.";
+                }
+            }
+        }
 
-      CONSTRAINTS:
-      - You have a STRICT BUDGET of ${totalSlots} lecture slots (60 mins each).
-      - If the syllabus is too long, you MUST mark less critical topics as "is_self_study: true".
-      - You can split large topics into "Part 1" and "Part 2" if needed.
+        const systemPrompt = `
+      You are an expert Academic Planner for a University.${facultyContext}
+      Your goal is to parse a raw syllabus and map it into a strictly sequential list of INDIVIDUAL lecture topics.
+
+      CRITICAL CONSTRAINTS:
+      - You have a STRICT TOTAL BUDGET of exactly ${totalSlots} lecture slots (60 mins each).
+      - **DO NOT** summarize an entire Unit/Chapter into a single generic title like "Unit 1 - Lecture 1". 
+      - You MUST extract the SPECIFIC SUB-TOPICS detailed in the syllabus (e.g. "Introduction to Verification", "White Box Testing", "Decision Tables") and assign ONE concrete sub-topic to each lecture.
+      - If a single sub-topic is very large, split it: "White Box Testing - Part 1", "White Box Testing - Part 2".
+      - If the syllabus contains duration indicators (like "Hours: 8" for a unit), spread the specific sub-topics of that unit across exactly 8 lectures.
+      - If the syllabus is too long for the ${totalSlots} budget, mark less critical or advanced sub-topics as "is_self_study: true".
       - Maintain logical prerequisite order.
-      - **CRITICAL**: If the syllabus text contains duration indicators (like "Hours", "Hrs", "T", "L", or numbers at the end of lines like "15 8"), USE THEM as a guide for how many lectures to allocate to that unit.
       
       OUTPUT FORMAT:
       Return ONLY a JSON object matching this schema:
       {
         "topics": [
           { 
-            "title": "Topic Name", 
+            "title": "Specific Sub-Topic Name", 
             "duration_mins": 60, 
             "is_self_study": false, 
             "sequence_order": 1,
             "reason_for_decision": "Core concept"
           }
         ],
-        "total_lectures_planned": ${totalSlots},
-        "metadata": { ... }
+        "total_lectures_planned": <must equal exactly ${totalSlots} including self-study bypass>,
+        "metadata": { "notes": "Any assumptions made" }
       }
     `;
 
@@ -125,7 +188,7 @@ export async function POST(req: NextRequest) {
         const openai = getOpenAI();
 
         const completion = await openai.chat.completions.create({
-            model: "mistralai/mistral-7b-instruct:free", // Low cost/free model for testing
+            model: "openai/gpt-oss-120b", // Better performance for JSON tasks
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: `Here is the syllabus for ${subject}:\n\n${syllabusText}` }
@@ -138,7 +201,17 @@ export async function POST(req: NextRequest) {
         if (!content) throw new Error("Empty response from AI");
 
         // 6. Validate AI Response
-        const aiPlan = AIPlanResponseSchema.parse(JSON.parse(content));
+        const cleanedContent = cleanJson(content);
+        console.log(`[Planner] Cleaned AI Response:`, cleanedContent.substring(0, 100) + "...");
+
+        let aiPlan;
+        try {
+            aiPlan = AIPlanResponseSchema.parse(JSON.parse(cleanedContent));
+        } catch (parseError) {
+            console.error("JSON Parse Error:", parseError);
+            console.log("Raw Content:", content);
+            throw new Error("Failed to parse AI response. The model might have returned invalid JSON.");
+        }
 
         // 7. Map AI Topics to Deterministic Slots
         // This is the "Magic" merging step
@@ -168,6 +241,12 @@ export async function POST(req: NextRequest) {
                 // Assign to next available slot
                 if (slotIndex < linearSlots.length) {
                     const slot = linearSlots[slotIndex];
+                    // Construct exact datetime for this slot correctly bridging the gap
+                    // schedule.date only holds the Date part, we merge the startTime string
+                    const [h, m] = slot.startTime.split(':');
+                    const exactDate = new Date(slot.date);
+                    exactDate.setHours(parseInt(h), parseInt(m), 0, 0);
+
                     finalTopics.push({
                         name: topic.title,
                         original_duration_mins: topic.duration_mins,
@@ -175,7 +254,7 @@ export async function POST(req: NextRequest) {
                         is_split: false,
                         priority: 'CORE',
                         completion_status: 'PENDING',
-                        scheduled_date: slot.date // The deterministic date!
+                        scheduled_date: exactDate // The deterministic date + time!
                     });
                     slotIndex++;
                 } else {
@@ -192,13 +271,19 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 8. Save Plan to DB
+        // 8. Inactivate previous plans for the same group & subject
+        await Plan.updateMany(
+            { faculty_id: facultyGroupId, subject: subject },
+            { $set: { status: 'INACTIVE' } }
+        );
+
+        // 9. Save Plan to DB
         const newPlan = await Plan.create({
             faculty_id: facultyGroupId,
             subject: subject,
             lecture_duration_mins: 60,
             total_slots_available: totalSlots,
-            status: 'DRAFT',
+            status: 'ACTIVE',
             syllabus_topics: finalTopics
         });
 
@@ -211,4 +296,26 @@ export async function POST(req: NextRequest) {
             { status: 500 }
         );
     }
+}
+
+function cleanJson(text: string): string {
+    // Remove markdown code blocks if present
+    const codeBlockRegex = /```json\s*([\s\S]*?)\s*```/;
+    const match = text.match(codeBlockRegex);
+    if (match) {
+        text = match[1];
+    } else {
+        const simpleCodeBlockRegex = /```\s*([\s\S]*?)\s*```/;
+        const matchSimple = text.match(simpleCodeBlockRegex);
+        if (matchSimple) {
+            text = matchSimple[1];
+        }
+    }
+    // Attempt to find the first { and last } to remove any leading/trailing text
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+        return text.substring(start, end + 1);
+    }
+    return text;
 }

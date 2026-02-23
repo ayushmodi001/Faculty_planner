@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui/SwissUI';
 import { Clock, Plus, Trash2, Save, Loader2, Calendar } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
@@ -187,6 +187,10 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
         }
     };
 
+    const activeGroup = facultyGroups.find(g => (g._id as unknown as string) === selectedGroupId);
+    const allowedSubjects = activeGroup?.subjects?.length ? subjectList.filter(s => activeGroup.subjects.includes(s.name)) : subjectList;
+    const allowedFaculties = activeGroup?.members?.length ? facultyList.filter(f => activeGroup.members?.includes(f.name)) : facultyList;
+
     return (
         <div className="space-y-6">
             <Card>
@@ -214,16 +218,14 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Select onValueChange={setSelectedGroupId} value={selectedGroupId}>
-                        <SelectTrigger className="w-full md:w-[300px]">
-                            <SelectValue placeholder="Select a group..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {facultyGroups.map(g => (
-                                <SelectItem key={g._id as string} value={g._id as string}>{g.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="w-full md:w-[300px]">
+                        <SearchableSelect
+                            options={facultyGroups.map(g => ({ value: g._id as unknown as string, label: g.name }))}
+                            value={selectedGroupId}
+                            onValueChange={setSelectedGroupId}
+                            placeholder="Search and select a faculty group..."
+                        />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -267,30 +269,24 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                                         </div>
 
                                         <div className="space-y-1">
-                                            <select
-                                                className="w-full h-7 text-xs bg-background border border-input rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                                            <SearchableSelect
+                                                options={allowedSubjects.map(s => ({ value: s.name, label: `${s.name} (${s.code})` }))}
                                                 value={slot.subject || ''}
-                                                onChange={(e) => handleUpdateSlot(day, idx, 'subject', e.target.value)}
-                                            >
-                                                <option value="" disabled>Select Subject</option>
-                                                {subjectList.map(s => (
-                                                    <option key={s._id} value={s.name}>{s.name} ({s.code})</option>
-                                                ))}
-                                            </select>
+                                                onValueChange={(val) => handleUpdateSlot(day, idx, 'subject', val)}
+                                                placeholder="Select Subject"
+                                                className="w-full h-8 text-xs bg-background border border-input rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                                            />
                                         </div>
 
                                         <div className="flex gap-2 items-center">
                                             <div className="flex-1">
-                                                <select
-                                                    className="w-full h-7 text-xs bg-background border border-input rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                                                <SearchableSelect
+                                                    options={allowedFaculties.map(f => ({ value: f.name, label: f.name }))}
                                                     value={slot.faculty || ''}
-                                                    onChange={(e) => handleUpdateSlot(day, idx, 'faculty', e.target.value)}
-                                                >
-                                                    <option value="" disabled>Select Faculty</option>
-                                                    {facultyList.map(f => (
-                                                        <option key={f.email} value={f.name}>{f.name}</option>
-                                                    ))}
-                                                </select>
+                                                    onValueChange={(val) => handleUpdateSlot(day, idx, 'faculty', val)}
+                                                    placeholder="Select Faculty"
+                                                    className="w-full h-8 text-xs bg-background border border-input rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                                                />
                                             </div>
                                             <Input
                                                 className="h-7 text-xs w-20"
@@ -300,8 +296,8 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                                             />
                                             <Button
                                                 variant="destructive"
-                                                size="icon"
-                                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                size="sm"
+                                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity p-0"
                                                 onClick={() => handleDeleteSlot(day, idx)}
                                             >
                                                 <Trash2 className="w-3 h-3" />

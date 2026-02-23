@@ -6,6 +6,7 @@ import { createFacultyGroup, getAllFacultyGroups } from '@/app/actions/faculty';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import { Loader2, X, Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface EditFacultyGroupFormProps {
     groupId: string;
@@ -14,6 +15,8 @@ interface EditFacultyGroupFormProps {
 
         subjects: string[];
         members?: string[];
+        termStartDate?: Date | string;
+        termEndDate?: Date | string;
     };
 }
 
@@ -151,16 +154,13 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground uppercase tracking-wider">Assigned Subjects</label>
                             <div className="flex gap-2 mb-3">
-                                <select
-                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                <SearchableSelect
+                                    options={availableSubjects.map(sub => ({ value: sub.name, label: `${sub.name} (${sub.code})` }))}
                                     value={currentSubject}
-                                    onChange={(e) => setCurrentSubject(e.target.value)}
-                                >
-                                    <option value="" disabled>Select Subject to Add</option>
-                                    {availableSubjects.map(sub => (
-                                        <option key={sub._id} value={sub.name}>{sub.name} ({sub.code})</option>
-                                    ))}
-                                </select>
+                                    onValueChange={setCurrentSubject}
+                                    placeholder="Select Subject to Add"
+                                    className="flex-1"
+                                />
                                 <Button type="button" variant="secondary" onClick={handleAddSubject}>
                                     <Plus className="w-4 h-4" /> Add
                                 </Button>
@@ -181,16 +181,13 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Faculties</label>
                             <div className="flex gap-2 mb-3">
-                                <select
-                                    className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                <SearchableSelect
+                                    options={availableFaculties.map(fac => ({ value: fac.name, label: fac.name }))}
                                     value={currentFaculty}
-                                    onChange={(e) => setCurrentFaculty(e.target.value)}
-                                >
-                                    <option value="" disabled>Select Faculty to Add</option>
-                                    {availableFaculties.map(fac => (
-                                        <option key={fac.email} value={fac.name}>{fac.name}</option>
-                                    ))}
-                                </select>
+                                    onValueChange={setCurrentFaculty}
+                                    placeholder="Select Faculty to Add"
+                                    className="flex-1"
+                                />
                                 <Button type="button" variant="secondary" onClick={handleAddFaculty}>
                                     <Plus className="w-4 h-4" /> Add
                                 </Button>
@@ -209,6 +206,31 @@ export default function EditFacultyGroupForm({ groupId, initialData }: EditFacul
                                     <span className="text-sm text-muted-foreground italic w-full text-center">No faculties assigned.</span>
                                 )}
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Academic Term Duration</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Term Start</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm"
+                                        value={formData.termStartDate ? new Date(formData.termStartDate).toISOString().split('T')[0] : ''}
+                                        onChange={(e) => setFormData({ ...formData, termStartDate: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Term End</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm"
+                                        value={formData.termEndDate ? new Date(formData.termEndDate).toISOString().split('T')[0] : ''}
+                                        onChange={(e) => setFormData({ ...formData, termEndDate: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Defines the validity period for this group's schedule. Outside these dates, availability is zero.</p>
                         </div>
 
                         <div className="pt-6 flex gap-4">

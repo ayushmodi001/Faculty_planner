@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui/SwissUI';
-import { createCalendarEvent, getCalendarEvents, deleteCalendarEvent } from '@/app/actions/calendar';
+import { createCalendarEvent, getCalendarEvents, deleteCalendarEvent, updateCalendarEvent } from '@/app/actions/calendar';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, CalendarRange } from 'lucide-react';
+import { Loader2, Plus, Trash2, CalendarRange, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,12 +19,14 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
     const [events, setEvents] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     // New Event State
     const [newEvent, setNewEvent] = useState({
         title: '',
         type: 'EVENT',
-        description: ''
+        description: '',
+        endDate: ''
     });
 
     useEffect(() => {
@@ -38,22 +40,49 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
         setIsLoading(false);
     };
 
-    const handleCreateEvent = async () => {
+    const handleSaveEvent = async () => {
         if (!date || !newEvent.title) return;
 
         try {
-            await createCalendarEvent({
-                ...newEvent,
-                date: date,
-                type: newEvent.type as any
-            });
-            toast.success('Event Added');
+            if (editingId) {
+                await updateCalendarEvent(editingId, {
+                    ...newEvent,
+                    date: date,
+                    endDate: newEvent.endDate ? new Date(newEvent.endDate) : undefined,
+                    type: newEvent.type as any
+                });
+                toast.success('Event Updated');
+            } else {
+                await createCalendarEvent({
+                    ...newEvent,
+                    date: date,
+                    endDate: newEvent.endDate ? new Date(newEvent.endDate) : undefined,
+                    type: newEvent.type as any
+                });
+                toast.success('Event Added');
+            }
             setIsDialogOpen(false);
-            setNewEvent({ title: '', type: 'EVENT', description: '' });
+            setNewEvent({ title: '', type: 'EVENT', description: '', endDate: '' });
+            setEditingId(null);
             loadEvents();
         } catch (error) {
-            toast.error('Failed to add event');
+            toast.error('Failed to save event');
         }
+    };
+
+    const handleEditClick = (event: any) => {
+        setNewEvent({
+            title: event.title,
+            type: event.type,
+            description: event.description || '',
+            endDate: event.endDate ? new Date(event.endDate).toISOString().split('T')[0] : ''
+        });
+        // We keep the calendar selection as is, or update it?
+        // Updating calendar selection might be confusing if editing event on different day.
+        // But for simplicity, let's assume user clicked on the day.
+        // Actually, the list only shows events for selected date. So date is already correct.
+        setEditingId(event._id);
+        setIsDialogOpen(true);
     };
 
     const handleDeleteEvent = async (id: string) => {
@@ -111,19 +140,29 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                 <div key={event._id} className="p-3 bg-background rounded-lg border shadow-sm flex justify-between items-start group">
                                     <div>
                                         <div className="font-bold text-sm">{event.title}</div>
-                                        <Badge variant={event.type === 'HOLIDAY' ? 'destructive' : 'secondary'} className="mt-1 text-[10px]">
+                                        <Badge variant={event.type === 'HOLIDAY' ? 'destructive' : 'default'} className="mt-1 text-[10px]">
                                             {event.type}
                                         </Badge>
                                     </div>
                                     {!readOnly && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeleteEvent(event._id)}
-                                        >
-                                            <Trash2 className="w-3 h-3" />
-                                        </Button>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                                                onClick={() => handleEditClick(event)}
+                                            >
+                                                <Edit className="w-3 h-3" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                                onClick={() => handleDeleteEvent(event._id)}
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             ))
@@ -134,7 +173,13 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                         )}
 
                         {!readOnly && date && (
-                            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                                setIsDialogOpen(open);
+                                if (!open) {
+                                    setEditingId(null);
+                                    setNewEvent({ title: '', type: 'EVENT', description: '', endDate: '' });
+                                }
+                            }}>
                                 <DialogTrigger asChild>
                                     <Button className="w-full mt-4" variant="outline">
                                         <Plus className="w-4 h-4 mr-2" /> Add Event
@@ -142,7 +187,7 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                 </DialogTrigger>
                                 <DialogContent>
                                     <DialogHeader>
-                                        <DialogTitle>Add Event for {date.toLocaleDateString()}</DialogTitle>
+                                        <DialogTitle>{editingId ? 'Edit Event' : 'Add Event'} for {date.toLocaleDateString()}</DialogTitle>
                                     </DialogHeader>
                                     <div className="space-y-4 py-4">
                                         <div className="space-y-2">
@@ -152,6 +197,21 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                                 onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
                                                 placeholder="e.g. Mid-Term Exams"
                                             />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Start Date</label>
+                                                <Input value={date.toLocaleDateString()} disabled className="bg-muted" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">End Date (Optional)</label>
+                                                <Input
+                                                    type="date"
+                                                    min={date.toISOString().split('T')[0]}
+                                                    value={newEvent.endDate}
+                                                    onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })}
+                                                />
+                                            </div>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Type</label>
@@ -170,7 +230,9 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button onClick={handleCreateEvent} className="w-full">Save Event</Button>
+                                        <Button onClick={handleSaveEvent} className="w-full">
+                                            {editingId ? 'Update Event' : 'Save Event'}
+                                        </Button>
                                     </div>
                                 </DialogContent>
                             </Dialog>

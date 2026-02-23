@@ -7,7 +7,7 @@ export interface ITopic {
     is_split: boolean;
     priority: 'CORE' | 'PREREQUISITE' | 'SELF_STUDY';
     scheduled_date?: Date;
-    completion_status: 'PENDING' | 'DONE' | 'MISSED';
+    completion_status: 'PENDING' | 'DONE' | 'MISSED' | 'CONTINUED';
     notes?: string;
 }
 
@@ -33,7 +33,7 @@ const TopicSchema = new Schema<ITopic>({
     scheduled_date: { type: Date },
     completion_status: {
         type: String,
-        enum: ['PENDING', 'DONE', 'MISSED'],
+        enum: ['PENDING', 'DONE', 'MISSED', 'CONTINUED'],
         default: 'PENDING',
     },
     notes: { type: String },
