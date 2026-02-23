@@ -37,6 +37,10 @@ export default function SubjectsPage() {
     const [editSyllabusFile, setEditSyllabusFile] = useState<File | null>(null);
     const [editSyllabusHasOriginal, setEditSyllabusHasOriginal] = useState(false);
 
+    // Delete State
+    const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // Initial Fetch
     const fetchSubjects = async () => {
         try {
@@ -101,17 +105,21 @@ export default function SubjectsPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Delete this subject?")) return;
+    const handleConfirmDelete = async () => {
+        if (!subjectToDelete) return;
+        setIsDeleting(true);
         try {
-            const res = await fetch(`/api/admin/subjects?id=${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/subjects?id=${subjectToDelete}`, { method: 'DELETE' });
             if (res.ok) {
                 toast.success("Deleted");
-                setSubjects(prev => prev.filter(s => s._id !== id));
+                setSubjects(prev => prev.filter(s => s._id !== subjectToDelete));
                 router.refresh();
             }
         } catch (error) {
             toast.error("Delete failed");
+        } finally {
+            setIsDeleting(false);
+            setSubjectToDelete(null);
         }
     };
 
@@ -280,7 +288,7 @@ export default function SubjectsPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => handleDelete(sub._id)}
+                                                        onClick={() => setSubjectToDelete(sub._id)}
                                                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -330,6 +338,25 @@ export default function SubjectsPage() {
                         <Button onClick={handleEditSave} disabled={isSubmitting}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                             Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!subjectToDelete} onOpenChange={(open) => !open && setSubjectToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Subject</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <p className="text-sm text-muted-foreground">Are you sure you want to delete this subject? This action cannot be undone.</p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSubjectToDelete(null)} disabled={isDeleting}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>
