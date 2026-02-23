@@ -15,17 +15,17 @@ export async function GET(req: NextRequest) {
         const user = await User.findById(id).lean();
         if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-        // 1. Find groups where this user is a member
+        // 1. Find groups where this user is a member (Case-insensitive)
         const groups = await FacultyGroup.find({
             $or: [
-                { members: user.name },
-                { "timetable.Monday.faculty": user.name },
-                { "timetable.Tuesday.faculty": user.name },
-                { "timetable.Wednesday.faculty": user.name },
-                { "timetable.Thursday.faculty": user.name },
-                { "timetable.Friday.faculty": user.name },
-                { "timetable.Saturday.faculty": user.name },
-                { "timetable.Sunday.faculty": user.name }
+                { members: { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Monday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Tuesday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Wednesday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Thursday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Friday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Saturday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } },
+                { "timetable.Sunday.faculty": { $regex: new RegExp(`^${user.name}$`, 'i') } }
             ]
         }).lean();
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
             if (group.timetable) {
                 Object.values(group.timetable).forEach((slots: any) => {
                     slots.forEach((slot: any) => {
-                        if (slot.faculty === user.name && slot.subject) {
+                        if (slot.faculty && slot.faculty.toLowerCase() === user.name.toLowerCase() && slot.subject) {
                             groupSubjects.add(slot.subject);
                         }
                     });
@@ -78,7 +78,9 @@ export async function GET(req: NextRequest) {
                 allTopics.push({
                     ...topic,
                     subject: plan.subject,
-                    groupName: groups.find(g => g._id.toString() === plan.faculty_id.toString())?.name || 'Unknown'
+                    groupName: groups.find(g => g._id.toString() === plan.faculty_id.toString())?.name ||
+                        groups.find(g => String(g._id) === String(plan.faculty_id))?.name ||
+                        'Unknown'
                 });
             });
         });

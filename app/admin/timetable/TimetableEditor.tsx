@@ -232,8 +232,24 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
     };
 
     const activeGroup = facultyGroups.find(g => (g._id as unknown as string) === selectedGroupId);
-    const allowedSubjects = activeGroup?.subjects?.length ? subjectList.filter(s => activeGroup.subjects.includes(s.name)) : subjectList;
-    const allowedFaculties = activeGroup?.members?.length ? facultyList.filter(f => activeGroup.members?.includes(f.name)) : facultyList;
+
+    // Improved Subject filtering: 
+    // 1. Case-insensitive matching with assigned subjects
+    // 2. Fallback to ALL subjects if no matches or none assigned
+    const assignedNames = activeGroup?.subjects || [];
+    const filteredSubjects = assignedNames.length > 0
+        ? subjectList.filter(s =>
+            assignedNames.some(name => name.trim().toLowerCase() === s.name.trim().toLowerCase())
+        )
+        : subjectList;
+
+    const allowedSubjects = (filteredSubjects.length > 0 || assignedNames.length === 0)
+        ? (filteredSubjects.length > 0 ? filteredSubjects : subjectList)
+        : subjectList;
+
+    const allowedFaculties = activeGroup?.members?.length
+        ? facultyList.filter(f => activeGroup.members?.some(m => m.trim().toLowerCase() === f.name.trim().toLowerCase()))
+        : facultyList;
 
     return (
         <div className="space-y-6">
