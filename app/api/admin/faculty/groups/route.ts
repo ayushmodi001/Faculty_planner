@@ -71,8 +71,16 @@ export async function DELETE(req: NextRequest) {
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
+        const ids = searchParams.get('ids');
 
-        if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+        if (ids) {
+            const idArray = ids.split(',');
+            await FacultyGroup.deleteMany({ _id: { $in: idArray } });
+            revalidatePath('/admin/faculty');
+            return NextResponse.json({ success: true, count: idArray.length });
+        }
+
+        if (!id) return NextResponse.json({ error: "ID or IDs required" }, { status: 400 });
 
         await FacultyGroup.findByIdAndDelete(id);
         revalidatePath('/admin/faculty');
