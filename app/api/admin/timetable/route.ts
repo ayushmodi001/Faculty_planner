@@ -60,6 +60,31 @@ export async function POST(req: NextRequest) {
 
         const { facultyGroupId, timetable } = validation.data;
 
+        // Conflict Validation
+        const otherGroups = await FacultyGroup.find({ _id: { $ne: facultyGroupId } }).lean();
+        const conflicts: string[] = [];
+
+        for (const [day, slots] of Object.entries(timetable)) {
+            for (const slot of slots) {
+                if (!slot.faculty) continue;
+
+                for (const group of otherGroups) {
+                    const groupSlots = (group.timetable as any)?.[day] || [];
+                    for (const gSlot of groupSlots) {
+                        if (gSlot.faculty === slot.faculty) {
+                            if (slot.startTime < gSlot.endTime && slot.endTime > gSlot.startTime) {
+                                conflicts.push(`Faculty ${slot.faculty} is already teaching in group '${group.name}' on ${day} from ${gSlot.startTime} to ${gSlot.endTime}.`);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (conflicts.length > 0) {
+            return NextResponse.json({ error: "Faculty conflict detected", details: conflicts[0] }, { status: 409 });
+        }
+
         // 1. Save Timetable
         const updatedGroup = await FacultyGroup.findByIdAndUpdate(facultyGroupId, {
             $set: { timetable: timetable }

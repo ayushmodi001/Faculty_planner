@@ -37,7 +37,30 @@ export default async function PrincipalDashboard() {
             </div>
 
             {/* Quick Access Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
+
+                {/* Settings */}
+                <Link href="/dashboard/principal/settings" className="group">
+                    <Card className="h-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white/80 backdrop-blur rounded-[24px] overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#BC4749] transition-colors duration-300 shadow-inner">
+                                    <BarChart3 className="w-6 h-6 text-[#BC4749] group-hover:text-[#FEFAE0]" />
+                                </div>
+                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                            </div>
+                            <CardTitle className="text-xl text-[#283618]">Settings</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-[#5C6836] mb-2 font-medium">
+                                Configure college defaults.
+                            </p>
+                            <div className="text-xs font-bold text-[#A6835B] uppercase tracking-wide">
+                                Admin Global
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
 
                 {/* User & Faculty Management */}
                 <Link href="/admin/users" className="group">

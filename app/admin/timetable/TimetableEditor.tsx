@@ -27,8 +27,29 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 export default function TimetableEditor({ facultyGroups }: TimetableEditorProps) {
     const [selectedGroupId, setSelectedGroupId] = useState<string>("");
     const [timetable, setTimetable] = useState<Record<string, ISlot[]>>({});
+    const [collegeSettings, setCollegeSettings] = useState({ collegeStartTime: "09:00", collegeEndTime: "16:00", slotDurationHours: 1 });
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Fetch College Settings
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await fetch('/api/admin/settings');
+                const data = await res.json();
+                if (data.success && data.settings) {
+                    setCollegeSettings({
+                        collegeStartTime: data.settings.collegeStartTime || "09:00",
+                        collegeEndTime: data.settings.collegeEndTime || "16:00",
+                        slotDurationHours: data.settings.slotDurationHours || 1
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch settings", err);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     // Load Timetable when Group is selected
     useEffect(() => {
@@ -39,12 +60,29 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
             try {
                 const res = await fetch(`/api/admin/timetable?id=${selectedGroupId}`);
                 const data = await res.json();
-                if (data.timetable) {
+                if (data.timetable && Object.keys(data.timetable).length > 0) {
                     setTimetable(data.timetable);
                 } else {
-                    // Default empty structure
+                    // Default empty structure with pre-filled times based on college settings
                     const defaults: any = {};
-                    DAYS.forEach(d => defaults[d] = []);
+
+                    const startHour = parseInt(collegeSettings.collegeStartTime.split(':')[0]);
+                    const endHour = parseInt(collegeSettings.collegeEndTime.split(':')[0]);
+                    const slotDuration = collegeSettings.slotDurationHours;
+
+                    const defaultSlots: ISlot[] = [];
+                    for (let h = startHour; h < endHour; h += slotDuration) {
+                        const start = `${h.toString().padStart(2, '0')}:00`;
+                        const end = `${(h + slotDuration).toString().padStart(2, '0')}:00`;
+                        defaultSlots.push({
+                            startTime: start,
+                            endTime: end,
+                            room: "",
+                            type: 'Lecture'
+                        });
+                    }
+
+                    DAYS.forEach(d => defaults[d] = JSON.parse(JSON.stringify(defaultSlots)));
                     setTimetable(defaults);
                 }
             } catch (err) {
@@ -55,7 +93,7 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
         };
 
         fetchTimetable();
-    }, [selectedGroupId]);
+    }, [selectedGroupId, collegeSettings]);
 
     const [facultyList, setFacultyList] = useState<{ name: string, email: string }[]>([]);
     const [subjectList, setSubjectList] = useState<{ _id: string, name: string, code: string }[]>([]);
@@ -113,11 +151,17 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
                 })
             });
 
-            if (!res.ok) throw new Error("Save failed");
+            const data = await res.json();
+            if (!res.ok) {
+                if (res.status === 409) {
+                    throw new Error(data.details || data.error);
+                }
+                throw new Error(data.error || "Save failed");
+            }
             toast.success("Timetable Saved!");
 
-        } catch (err) {
-            toast.error("Error saving timetable");
+        } catch (err: any) {
+            toast.error(err.message || "Error saving timetable");
         } finally {
             setIsSaving(false);
         }

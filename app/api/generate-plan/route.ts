@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
         const openai = getOpenAI();
 
         const completion = await openai.chat.completions.create({
-            model: "openai/gpt-oss-120b", // Better performance for JSON tasks
+            model: "openai/gpt-oss-120bi", // Better performance for JSON tasks
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: `Here is the syllabus for ${subject}:\n\n${syllabusText}` }
