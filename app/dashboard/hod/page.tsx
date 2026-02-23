@@ -22,7 +22,7 @@ async function getDashboardStats() {
     const recentFaculty = await User.find({ role: 'FACULTY' })
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('name email')
+        .select('name email facultyType')
         .lean();
 
     const facultyGroupCount = await FacultyGroup.countDocuments();
@@ -84,27 +84,7 @@ export default async function HODDashboard() {
                     </Card>
                 </Link>
 
-                {/* Card 2: Student Stats (Medium Contrast) */}
-                <Card className="col-span-1 md:col-span-2 lg:col-span-1 h-full border border-border shadow-md bg-secondary text-secondary-foreground rounded-[24px] overflow-hidden relative group hover:scale-[1.02] transition-transform duration-300">
-                    <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-background/5 to-transparent"></div>
-                    <CardHeader className="pb-2 relative z-10">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="p-3 bg-background rounded-2xl shadow-sm">
-                                <GraduationCap className="w-6 h-6 text-foreground" />
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <div className="text-4xl font-black">{studentCount}</div>
-                            <CardTitle className="text-lg text-muted-foreground font-medium">Students Enrolled</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="relative z-10">
-                        <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-xs font-medium text-muted-foreground">
-                            <span>Attendance</span>
-                            <span className="font-bold text-foreground">94%</span>
-                        </div>
-                    </CardContent>
-                </Card>
+
 
                 {/* Faculty Groups Card */}
                 <Link href="/admin/faculty" className="group col-span-1 md:col-span-2 lg:col-span-1">
@@ -257,8 +237,10 @@ export default async function HODDashboard() {
                                                             {fac.name.charAt(0)}
                                                         </div>
                                                         <div>
-                                                            <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">{fac.name}</div>
-                                                            <div className="text-xs text-muted-foreground font-medium">Assistant Professor</div>
+                                                            <Link href={`/dashboard/hod/faculty/${fac._id}`}>
+                                                                <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors hover:underline">{fac.name}</div>
+                                                            </Link>
+                                                            <div className="text-xs text-muted-foreground font-medium">{fac.facultyType === 'SENIOR' ? 'Senior Faculty' : 'Assistant Professor'}</div>
                                                         </div>
                                                     </div>
                                                 </td>
