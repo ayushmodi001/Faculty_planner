@@ -5,6 +5,8 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import Subject from '@/models/Subject';
+import FacultyGroup from '@/models/FacultyGroup';
+import { Network } from 'lucide-react';
 
 // Force dynamic rendering for real-time data
 export const dynamic = 'force-dynamic';
@@ -23,12 +25,14 @@ async function getDashboardStats() {
         .select('name email')
         .lean();
 
-    return { facultyCount, studentCount, subjectCount, recentFaculty };
+    const facultyGroupCount = await FacultyGroup.countDocuments();
+
+    return { facultyCount, studentCount, subjectCount, recentFaculty, facultyGroupCount };
 }
 
 export default async function HODDashboard() {
     // @ts-ignore - lean() typing issues sometimes
-    const { facultyCount, studentCount, subjectCount, recentFaculty } = await getDashboardStats();
+    const { facultyCount, studentCount, subjectCount, recentFaculty, facultyGroupCount } = await getDashboardStats();
 
     return (
         <DashboardLayout role="HOD">
@@ -101,6 +105,24 @@ export default async function HODDashboard() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Faculty Groups Card */}
+                <Link href="/admin/faculty" className="group col-span-1 md:col-span-2 lg:col-span-1">
+                    <Card className="h-full border border-border shadow-sm bg-card hover:bg-muted hover:border-primary/50 rounded-[24px] overflow-hidden transition-all duration-300">
+                        <CardHeader className="pb-2">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="p-3 bg-secondary/50 rounded-2xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                                    <Network className="w-6 h-6" />
+                                </div>
+                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-4xl font-black text-foreground">{facultyGroupCount}</div>
+                                <CardTitle className="text-lg text-muted-foreground">Faculty Groups</CardTitle>
+                            </div>
+                        </CardHeader>
+                    </Card>
+                </Link>
 
                 {/* Card 3: Curriculum (Light but Bold) */}
                 <Link href="/admin/subjects" className="group col-span-1 md:col-span-2 lg:col-span-1">
