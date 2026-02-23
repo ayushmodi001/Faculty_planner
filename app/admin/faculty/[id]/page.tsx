@@ -28,6 +28,7 @@ export default async function EditFacultyPage({ params }: { params: Promise<{ id
                     name: group.name,
                     subjects: group.subjects,
                     members: group.members || [],
+                    students: group.students || [],
                     termStartDate: group.termStartDate,
                     termEndDate: group.termEndDate
                 }}
