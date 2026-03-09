@@ -10,7 +10,6 @@ interface LogoProps {
 }
 
 export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
-    // Mapping size prop to image dimensions
     const dimensions = {
         sm: 24,
         md: 40,
@@ -20,22 +19,17 @@ export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
     const currentSize = dimensions[size] || 40;
 
     return (
-        <div className={cn("flex items-center gap-2 select-none", className)}>
-            <div className="relative">
-                <Image
-                    src="/l.png"
-                    alt="University Logo"
-                    width={currentSize}
-                    height={currentSize}
-                    className="object-contain"
-                    priority
-                />
-            </div>
-
+        <div className={cn("inline-flex items-center gap-2 select-none", className)}>
+            <Image
+                src="/l.png"
+                alt="University Logo"
+                width={currentSize}
+                height={currentSize}
+                className="object-contain shrink-0"
+                priority
+            />
             {showText && (
-                <div className="flex flex-col justify-center">
-                    {/* Text removed as it is in the logo image */}
-                </div>
+                <span className="font-black tracking-tighter text-foreground">UAPS</span>
             )}
         </div>
     );

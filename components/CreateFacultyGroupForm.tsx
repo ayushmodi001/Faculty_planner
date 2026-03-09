@@ -3,315 +3,403 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createFacultyGroup } from '@/app/actions/faculty';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
-import { Loader2, X, Plus } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui/SwissUI';
+import { Loader2, X, Plus, ArrowRight, BookOpen, Users, GraduationCap, Building2, Info, Link2 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { toast } from 'sonner';
+
+interface SubjectAssignment {
+    subjectId: string;
+    subjectName: string;
+    facultyId: string;
+    facultyName: string;
+}
+
+interface AvailableSubject { _id: string; name: string; code: string; }
+interface AvailableFaculty { _id: string; name: string; email: string; employeeId?: string; }
+interface AvailableStudent { _id: string; name: string; email: string; enrollmentNumber?: string; }
 
 export default function CreateFacultyGroupForm() {
     const router = useRouter();
-    const [formData, setFormData] = useState({
-        name: '',
-        currentSubject: '',
-        subjects: [] as string[],
-        currentFaculty: '',
-        members: [] as string[],
-        currentStudent: '',
-        students: [] as string[]
-    });
+
+    const [name, setName] = useState('');
+    const [year, setYear] = useState(1);
+    const [semester, setSemester] = useState(1);
+    const [section, setSection] = useState('');
+
+    const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
+    const [currentSubjectId, setCurrentSubjectId] = useState('');
+
+    const [selectedFacultyNames, setSelectedFacultyNames] = useState<string[]>([]);
+    const [currentFacultyName, setCurrentFacultyName] = useState('');
+
+    const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+    const [currentStudentId, setCurrentStudentId] = useState('');
+
+    const [subjectAssignments, setSubjectAssignments] = useState<SubjectAssignment[]>([]);
+    const [assignSubjectId, setAssignSubjectId] = useState('');
+    const [assignFacultyId, setAssignFacultyId] = useState('');
+
+    const [availableSubjects, setAvailableSubjects] = useState<AvailableSubject[]>([]);
+    const [availableFaculties, setAvailableFaculties] = useState<AvailableFaculty[]>([]);
+    const [availableStudents, setAvailableStudents] = useState<AvailableStudent[]>([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [availableSubjects, setAvailableSubjects] = useState<{ _id: string, name: string, code: string }[]>([]);
-    const [availableFaculties, setAvailableFaculties] = useState<{ name: string, email: string }[]>([]);
-    const [availableStudents, setAvailableStudents] = useState<{ _id: string, name: string, email: string }[]>([]);
 
     useEffect(() => {
-        const fetchResources = async () => {
+        const load = async () => {
             try {
-                // Fetch Subjects
-                const resSub = await fetch('/api/admin/subjects');
-                const dataSub = await resSub.json();
+                const [resSub, resFac, resStud] = await Promise.all([
+                    fetch('/api/admin/subjects'),
+                    fetch('/api/admin/users/list?role=FACULTY'),
+                    fetch('/api/admin/users/list?role=STUDENT'),
+                ]);
+                const [dataSub, dataFac, dataStud] = await Promise.all([
+                    resSub.json(), resFac.json(), resStud.json(),
+                ]);
                 if (dataSub.success) setAvailableSubjects(dataSub.subjects);
-
-                // Fetch Faculty
-                const resFac = await fetch('/api/admin/users/list?role=FACULTY');
-                const dataFac = await resFac.json();
                 if (dataFac.success) setAvailableFaculties(dataFac.users);
-
-                // Fetch Students
-                const resStud = await fetch('/api/admin/users/list?role=STUDENT');
-                const dataStud = await resStud.json();
                 if (dataStud.success) setAvailableStudents(dataStud.users);
             } catch (err) {
-                console.error(err);
+                console.error('Failed to load resources', err);
             }
         };
-        fetchResources();
+        load();
     }, []);
 
-    const handleAddSubject = () => {
-        if (formData.currentSubject.trim() === '') return;
-        setFormData(prev => ({
-            ...prev,
-            subjects: [...prev.subjects, prev.currentSubject.trim()],
-            currentSubject: ''
-        }));
+    const subjectById = (id: string) => availableSubjects.find(s => s._id === id);
+    const facultyById = (id: string) => availableFaculties.find(f => f._id === id);
+    const studentById = (id: string) => availableStudents.find(s => s._id === id);
+
+    const addSubject = () => {
+        if (!currentSubjectId || selectedSubjectIds.includes(currentSubjectId)) return;
+        setSelectedSubjectIds(prev => [...prev, currentSubjectId]);
+        setCurrentSubjectId('');
+    };
+    const removeSubject = (id: string) => {
+        setSelectedSubjectIds(prev => prev.filter(s => s !== id));
+        setSubjectAssignments(prev => prev.filter(a => a.subjectId !== id));
     };
 
-    const removeSubject = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            subjects: prev.subjects.filter((_, i) => i !== index)
-        }));
+    const addFaculty = () => {
+        if (!currentFacultyName || selectedFacultyNames.includes(currentFacultyName)) return;
+        setSelectedFacultyNames(prev => [...prev, currentFacultyName]);
+        setCurrentFacultyName('');
+    };
+    const removeFaculty = (fname: string) => {
+        setSelectedFacultyNames(prev => prev.filter(f => f !== fname));
+        setSubjectAssignments(prev => prev.filter(a => a.facultyName !== fname));
     };
 
-    const handleAddFaculty = () => {
-        if (formData.currentFaculty.trim() === '') return;
-        if (formData.members.includes(formData.currentFaculty)) return;
-        setFormData(prev => ({
-            ...prev,
-            members: [...prev.members, prev.currentFaculty],
-            currentFaculty: ''
-        }));
+    const addStudent = () => {
+        if (!currentStudentId || selectedStudentIds.includes(currentStudentId)) return;
+        setSelectedStudentIds(prev => [...prev, currentStudentId]);
+        setCurrentStudentId('');
     };
+    const removeStudent = (id: string) => setSelectedStudentIds(prev => prev.filter(s => s !== id));
 
-    const removeFaculty = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            members: prev.members.filter((_, i) => i !== index)
-        }));
+    const addAssignment = () => {
+        if (!assignSubjectId || !assignFacultyId) return;
+        const subj = subjectById(assignSubjectId);
+        const fac = facultyById(assignFacultyId);
+        if (!subj || !fac) return;
+        setSubjectAssignments(prev => [
+            ...prev.filter(a => a.subjectId !== assignSubjectId),
+            { subjectId: assignSubjectId, subjectName: subj.name, facultyId: assignFacultyId, facultyName: fac.name },
+        ]);
+        setAssignSubjectId('');
+        setAssignFacultyId('');
     };
-
-    const handleAddStudent = () => {
-        if (formData.currentStudent.trim() === '') return;
-        if (formData.students.includes(formData.currentStudent)) return;
-        setFormData(prev => ({
-            ...prev,
-            students: [...prev.students, prev.currentStudent],
-            currentStudent: ''
-        }));
-    };
-
-    const removeStudent = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            students: prev.students.filter((_, i) => i !== index)
-        }));
-    };
+    const removeAssignment = (subjectId: string) =>
+        setSubjectAssignments(prev => prev.filter(a => a.subjectId !== subjectId));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData.subjects.length === 0) {
-            setError('Please add at least one subject');
+        if (!name.trim()) {
+            toast.error('Group Name Missing', { description: 'Please provide a name for this group.' });
             return;
         }
-
+        if (selectedSubjectIds.length === 0) {
+            toast.error('No Subjects', { description: 'Please add at least one subject.' });
+            return;
+        }
+        const subjectNames = selectedSubjectIds.map(id => subjectById(id)?.name ?? '').filter(Boolean);
         setLoading(true);
-        setError(null);
-
         const result = await createFacultyGroup({
-            name: formData.name,
-            subjects: formData.subjects,
-            members: formData.members,
-            students: formData.students
-            // Timetable will be handled in a separate step
+            name,
+            subjects: subjectNames,
+            members: selectedFacultyNames,
+            students: selectedStudentIds,
+            subjectAssignments: subjectAssignments.map(a => ({
+                subject_id: a.subjectId,
+                faculty_id: a.facultyId,
+            })),
+            year,
+            semester,
+            section: section || undefined,
         });
-
         if (result.success) {
+            toast.success('Faculty Group Created', { description: `${name} has been saved successfully.` });
             router.push('/admin/faculty');
             router.refresh();
         } else {
-            setError(result.error || 'Something went wrong');
+            toast.error('Operation Failed', { description: result.error || 'Check administrative logs.' });
         }
-
         setLoading(false);
     };
 
     return (
-        <div className="max-w-2xl mx-auto py-12">
-            <div className="mb-8 text-center space-y-2">
-                <SwissSubHeading className="text-primary tracking-widest uppercase">Configuration</SwissSubHeading>
-                <SwissHeading className="text-3xl font-bold tracking-tight text-foreground">Create New Faculty Group</SwissHeading>
-                <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                    Define a new academic group and assign the subjects they are responsible for teaching this semester.
+        <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="space-y-2 border-l-4 border-primary pl-6 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Group Configuration</p>
+                <h2 className="text-4xl font-black tracking-tighter text-[#0A1128] uppercase">New Faculty Group</h2>
+                <p className="text-slate-500 font-medium text-sm max-w-xl">
+                    Create a new class group and assign subjects, faculty, and students.
                 </p>
             </div>
 
-            <Card className="border shadow-lg">
-                <CardContent className="pt-6">
-                    {error && (
-                        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 mb-6 rounded-md flex items-center justify-between">
-                            <span>{error}</span>
-                            <X className="w-4 h-4 cursor-pointer hover:text-red-700" onClick={() => setError(null)} />
+            <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Group Details */}
+                <Card className="rounded-[32px] border border-slate-100 shadow-xl bg-white overflow-hidden">
+                    <CardHeader className="p-8 pb-4 bg-slate-50/50 border-b border-slate-50">
+                        <div className="flex items-center gap-3">
+                            <Building2 className="w-5 h-5 text-primary" />
+                            <CardTitle className="text-xl font-black uppercase tracking-tight text-[#0A1128]">Group Details</CardTitle>
                         </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-
-                        {/* Group Name */}
+                    </CardHeader>
+                    <CardContent className="p-8 pt-6 space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Group Name Identifier</label>
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Class Designation (e.g. 6CSE-B)</label>
                             <input
                                 type="text"
-                                placeholder="e.g. CS-Sem5-DivA"
-                                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="Enter Group Name..."
+                                className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 text-xl font-black tracking-tight text-[#0A1128] focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all placeholder:text-slate-300"
+                                value={name}
+                                onChange={e => setName(e.target.value)}
                                 required
                             />
-                            <p className="text-xs text-muted-foreground">Unique identifier for this faculty cohort.</p>
                         </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Academic Year</label>
+                                <select className="w-full h-11 bg-slate-50 border border-slate-100 rounded-xl px-4 text-sm font-black text-[#0A1128] focus:ring-2 focus:ring-primary/20 outline-none" value={year} onChange={e => setYear(parseInt(e.target.value))}>
+                                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Semester</label>
+                                <select className="w-full h-11 bg-slate-50 border border-slate-100 rounded-xl px-4 text-sm font-black text-[#0A1128] focus:ring-2 focus:ring-primary/20 outline-none" value={semester} onChange={e => setSemester(parseInt(e.target.value))}>
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={s}>Semester {s}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Section</label>
+                                <input type="text" placeholder="A / B / C" maxLength={3} className="w-full h-11 bg-slate-50 border border-slate-100 rounded-xl px-4 text-sm font-black text-[#0A1128] focus:ring-2 focus:ring-primary/20 outline-none uppercase" value={section} onChange={e => setSection(e.target.value.toUpperCase())} />
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                            <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Year + Semester are used for dashboard analytics and academic segregation.</p>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                        <div className="border-t border-border"></div>
-
-                        {/* Subjects */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Assigned Subjects</label>
-                            <div className="flex gap-2 mb-3">
+                {/* Subjects & Faculty */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <Card className="rounded-[32px] border border-slate-100 shadow-lg bg-white overflow-hidden">
+                        <CardHeader className="p-6 pb-2 bg-emerald-50/10 border-b border-emerald-50/20">
+                            <div className="flex items-center gap-2">
+                                <BookOpen className="w-4 h-4 text-emerald-500" />
+                                <CardTitle className="text-lg font-black uppercase tracking-tight text-[#0A1128]">Subjects</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-4">
+                            <div className="flex gap-2">
                                 <SearchableSelect
-                                    options={availableSubjects.map(sub => ({ value: sub.name, label: `${sub.name} (${sub.code})` }))}
-                                    value={formData.currentSubject}
-                                    onValueChange={(val) => setFormData({ ...formData, currentSubject: val })}
-                                    placeholder="Select Subject"
-                                    className="flex-1"
+                                    options={availableSubjects.map(s => ({ value: s._id, label: `${s.name} (${s.code})` }))}
+                                    value={currentSubjectId}
+                                    onValueChange={setCurrentSubjectId}
+                                    placeholder="Select Subject..."
+                                    className="h-11 rounded-xl"
                                 />
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={handleAddSubject}
-                                    className="gap-2"
-                                >
-                                    <Plus className="w-4 h-4" /> Add
+                                <Button type="button" onClick={addSubject} className="h-11 w-11 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600">
+                                    <Plus className="w-5 h-5" />
                                 </Button>
                             </div>
-
-                            {/* Subject Pills */}
-                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
-                                {formData.subjects.length === 0 ? (
-                                    <span className="text-sm text-muted-foreground italic w-full text-center">No subjects added yet. Type above and press Enter.</span>
-                                ) : (
-                                    formData.subjects.map((sub, idx) => (
-                                        <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal">
-                                            {sub}
-                                            <button
-                                                type="button"
-                                                onClick={() => removeSubject(idx)}
-                                                className="hover:bg-primary/90 rounded-full p-0.5 transition-colors"
-                                            >
-                                                <X className="w-3 h-3 text-white" />
-                                            </button>
-                                        </Badge>
-                                    ))
-                                )}
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 min-h-[120px] flex flex-wrap gap-2 content-start">
+                                {selectedSubjectIds.length === 0 ? (
+                                    <p className="w-full text-center py-8 text-[9px] font-black text-slate-300 uppercase tracking-widest italic">No Subjects Added</p>
+                                ) : selectedSubjectIds.map(id => {
+                                    const s = subjectById(id);
+                                    return (
+                                        <div key={id} className="flex items-center gap-2 bg-[#0A1128] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                            {s ? s.name : id}
+                                            <X className="w-3 h-3 hover:text-emerald-400 cursor-pointer" onClick={() => removeSubject(id)} />
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        </div>
+                        </CardContent>
+                    </Card>
 
-                        <div className="border-t border-border"></div>
-
-                        {/* Associated Faculties */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Faculties</label>
-                            <div className="flex gap-2 mb-3">
+                    <Card className="rounded-[32px] border border-slate-100 shadow-lg bg-white overflow-hidden">
+                        <CardHeader className="p-6 pb-2 bg-blue-50/10 border-b border-blue-50/20">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-blue-500" />
+                                <CardTitle className="text-lg font-black uppercase tracking-tight text-[#0A1128]">Faculty Members</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-4">
+                            <div className="flex gap-2">
                                 <SearchableSelect
-                                    options={availableFaculties.map(fac => ({ value: fac.name, label: fac.name }))}
-                                    value={formData.currentFaculty}
-                                    onValueChange={(val) => setFormData({ ...formData, currentFaculty: val })}
-                                    placeholder="Select Faculty Member"
-                                    className="flex-1"
+                                    options={availableFaculties.map(f => ({ value: f.name, label: f.employeeId ? `${f.name} (#${f.employeeId})` : f.name }))}
+                                    value={currentFacultyName}
+                                    onValueChange={setCurrentFacultyName}
+                                    placeholder="Select Faculty..."
+                                    className="h-11 rounded-xl"
                                 />
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={handleAddFaculty}
-                                    className="gap-2"
-                                >
-                                    <Plus className="w-4 h-4" /> Add
+                                <Button type="button" onClick={addFaculty} className="h-11 w-11 rounded-xl bg-blue-500 text-white hover:bg-blue-600">
+                                    <Plus className="w-5 h-5" />
                                 </Button>
                             </div>
-
-                            {/* Faculty Pills */}
-                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
-                                {formData.members.length === 0 ? (
-                                    <span className="text-sm text-muted-foreground italic w-full text-center">No faculties assigned yet. Select above.</span>
-                                ) : (
-                                    formData.members.map((fac, idx) => (
-                                        <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-background text-foreground border">
-                                            {fac}
-                                            <button
-                                                type="button"
-                                                onClick={() => removeFaculty(idx)}
-                                                className="hover:bg-primary/90 hover:text-white rounded-full p-0.5 transition-colors"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </Badge>
-                                    ))
-                                )}
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 min-h-[120px] flex flex-wrap gap-2 content-start">
+                                {selectedFacultyNames.length === 0 ? (
+                                    <p className="w-full text-center py-8 text-[9px] font-black text-slate-300 uppercase tracking-widest italic">No Faculty Assigned</p>
+                                ) : selectedFacultyNames.map((fname, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 bg-white border border-slate-200 text-[#0A1128] px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm">
+                                        {fname}
+                                        <X className="w-3 h-3 hover:text-rose-500 cursor-pointer" onClick={() => removeFaculty(fname)} />
+                                    </div>
+                                ))}
                             </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Subject → Faculty Assignments */}
+                <Card className="rounded-[32px] border border-slate-100 shadow-lg bg-white overflow-hidden">
+                    <CardHeader className="p-6 pb-2 bg-amber-50/20 border-b border-amber-50/30">
+                        <div className="flex items-center gap-2">
+                            <Link2 className="w-4 h-4 text-amber-500" />
+                            <CardTitle className="text-lg font-black uppercase tracking-tight text-[#0A1128]">Subject–Faculty Assignments</CardTitle>
                         </div>
-
-                        <div className="border-t border-border"></div>
-
-                        {/* Associated Students */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground uppercase tracking-wider">Associated Students</label>
-                            <div className="flex gap-2 mb-3">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            Assign which faculty member teaches each subject in this group.
+                        </p>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                        <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Subject</label>
                                 <SearchableSelect
-                                    options={availableStudents.map(stud => ({ value: stud._id, label: `${stud.name} (${stud.email})` }))}
-                                    value={formData.currentStudent}
-                                    onValueChange={(val) => setFormData({ ...formData, currentStudent: val })}
-                                    placeholder="Select Student"
-                                    className="flex-1"
+                                    options={selectedSubjectIds.map(id => {
+                                        const s = subjectById(id);
+                                        return { value: id, label: s ? `${s.name} (${s.code})` : id };
+                                    })}
+                                    value={assignSubjectId}
+                                    onValueChange={setAssignSubjectId}
+                                    placeholder="Pick subject..."
+                                    className="h-11 rounded-xl"
                                 />
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={handleAddStudent}
-                                    className="gap-2"
-                                >
-                                    <Plus className="w-4 h-4" /> Add
-                                </Button>
                             </div>
-
-                            {/* Student Pills */}
-                            <div className="flex flex-wrap gap-2 min-h-[40px] items-center p-4 bg-muted/20 border border-dashed rounded-md">
-                                {formData.students.length === 0 ? (
-                                    <span className="text-sm text-muted-foreground italic w-full text-center">No students assigned yet. Select above.</span>
-                                ) : (
-                                    formData.students.map((studId, idx) => {
-                                        const stud = availableStudents.find(s => s._id === studId);
-                                        return (
-                                            <Badge variant="default" key={idx} className="pl-3 pr-1 py-1 gap-2 text-sm font-normal bg-blue-100 text-blue-900 border border-blue-200">
-                                                {stud ? stud.name : studId}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeStudent(idx)}
-                                                    className="hover:bg-blue-600 hover:text-white rounded-full p-0.5 transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </Badge>
-                                        );
-                                    })
-                                )}
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Faculty</label>
+                                <SearchableSelect
+                                    options={availableFaculties.filter(f => selectedFacultyNames.includes(f.name)).map(f => ({ value: f._id, label: f.name }))}
+                                    value={assignFacultyId}
+                                    onValueChange={setAssignFacultyId}
+                                    placeholder="Pick faculty..."
+                                    className="h-11 rounded-xl"
+                                />
                             </div>
-                        </div>
-
-                        <div className="pt-6">
-                            <Button type="submit" disabled={loading} className="w-full">
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving Configuration...
-                                    </>
-                                ) : (
-                                    'Create Faculty Group'
-                                )}
+                            <Button type="button" onClick={addAssignment} className="h-11 w-11 rounded-xl bg-amber-500 text-white hover:bg-amber-600 self-end">
+                                <Plus className="w-5 h-5" />
                             </Button>
                         </div>
+                        {subjectAssignments.length === 0 ? (
+                            <p className="text-center py-4 text-[9px] font-black text-slate-300 uppercase tracking-widest italic">
+                                No assignments yet — add subjects and faculty first.
+                            </p>
+                        ) : (
+                            <div className="space-y-2">
+                                {subjectAssignments.map(a => (
+                                    <div key={a.subjectId} className="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                                        <div className="flex items-center gap-3 text-sm font-bold text-[#0A1128]">
+                                            <span className="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md text-[9px] uppercase tracking-widest font-black">{a.subjectName}</span>
+                                            <span className="text-slate-400">→</span>
+                                            <span>{a.facultyName}</span>
+                                        </div>
+                                        <button type="button" onClick={() => removeAssignment(a.subjectId)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
-                    </form>
-                </CardContent>
-            </Card>
+                {/* Students */}
+                <Card className="rounded-[32px] border border-slate-100 shadow-lg bg-white overflow-hidden">
+                    <CardHeader className="p-6 pb-2 bg-violet-50/10 border-b border-violet-50/20">
+                        <div className="flex items-center gap-2">
+                            <GraduationCap className="w-4 h-4 text-violet-500" />
+                            <CardTitle className="text-lg font-black uppercase tracking-tight text-[#0A1128]">
+                                Students <span className="text-slate-400 font-medium normal-case text-sm">(Optional)</span>
+                            </CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex gap-2">
+                            <SearchableSelect
+                                options={availableStudents.map(s => ({
+                                    value: s._id,
+                                    label: s.enrollmentNumber ? `${s.name} (#${s.enrollmentNumber})` : `${s.name} (${s.email})`,
+                                }))}
+                                value={currentStudentId}
+                                onValueChange={setCurrentStudentId}
+                                placeholder="Search students..."
+                                className="h-11 rounded-xl flex-1"
+                            />
+                            <Button type="button" onClick={addStudent} className="h-11 w-11 rounded-xl bg-violet-500 text-white hover:bg-violet-600">
+                                <Plus className="w-5 h-5" />
+                            </Button>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 min-h-[80px] flex flex-wrap gap-2 content-start">
+                            {selectedStudentIds.length === 0 ? (
+                                <p className="w-full text-center py-4 text-[9px] font-black text-slate-300 uppercase tracking-widest italic">No Students Added</p>
+                            ) : selectedStudentIds.map(id => {
+                                const s = studentById(id);
+                                return (
+                                    <div key={id} className="flex items-center gap-2 bg-violet-50 text-violet-600 border border-violet-100 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                        {s ? (s.enrollmentNumber ? `${s.name} #${s.enrollmentNumber}` : s.name) : id}
+                                        <X className="w-3 h-3 hover:text-rose-500 cursor-pointer" onClick={() => removeStudent(id)} />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Submit */}
+                <div className="pt-6">
+                    <Button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full h-20 rounded-[24px] bg-[#0A1128] hover:bg-[#0A1128]/90 text-white font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl shadow-slate-900/20 group transition-all active:scale-[0.98]"
+                    >
+                        {loading ? (
+                            <div className="flex items-center gap-3">
+                                <Loader2 className="h-5 w-5 animate-spin" /> Saving Group...
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3">
+                                Create Faculty Group
+                                <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                            </div>
+                        )}
+                    </Button>
+                </div>
+            </form>
         </div>
     );
 }

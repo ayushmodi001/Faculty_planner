@@ -1,7 +1,5 @@
-
 import React from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import PlannerInterface from '@/app/admin/planner/PlannerInterface';
 import { IFacultyGroup } from '@/models/FacultyGroup';
 import { getAllFacultyGroups } from '@/app/actions/faculty';
@@ -23,8 +21,8 @@ export default async function StudentPlannerPage() {
             const session = await verifyJWT(token);
             if (session) {
                 const user = await User.findById(session.id).lean();
-                if (user && user.facultyGroupId) {
-                    defaultGroupId = user.facultyGroupId;
+                if (user && (user as any).facultyGroupId) {
+                    defaultGroupId = (user as any).facultyGroupId;
                 }
             }
         }
@@ -37,15 +35,15 @@ export default async function StudentPlannerPage() {
 
     return (
         <DashboardLayout role="Student">
-            <div className="max-w-7xl mx-auto mb-8 animate-in slide-in-from-bottom-5 duration-500">
-                <SwissSubHeading className="text-[#5C6836] mb-1">Curriculum Tracker</SwissSubHeading>
-                <SwissHeading className="text-4xl text-[#283618]">Course Roadmap</SwissHeading>
-                <p className="text-[#A6835B] mt-2 text-sm max-w-2xl font-medium">
-                    View the scheduled topics for your enrolled subjects.
-                </p>
+            <div className="max-w-7xl mx-auto mb-8 animate-in fade-in duration-500">                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Syllabus Tracker</h1>
+                    <p className="text-slate-500 text-sm max-w-2xl">
+                        View the scheduled topics for your enrolled subjects and track your academic progress.
+                    </p>
+                </div>
             </div>
 
-            <div className="max-w-7xl mx-auto animate-in fade-in duration-700 delay-100">
+            <div className="max-w-7xl mx-auto">
                 <PlannerInterface
                     facultyGroups={JSON.parse(JSON.stringify(facultyGroups))}
                     readOnly={true}

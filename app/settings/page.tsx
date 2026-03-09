@@ -30,17 +30,15 @@ export default async function GlobalSettingsPage() {
             </div>
 
             <div className="max-w-4xl mx-auto space-y-8">
-                <ChangePasswordForm />
-
-                {/* HOD Specific Settings */}
-                {(role === 'HOD' || role === 'ADMIN' || role === 'PRINCIPAL') && (
+                <ChangePasswordForm />                {/* HOD / Principal Specific Settings */}
+                {(role === 'HOD' || role === 'PRINCIPAL') && (
                     <div className="space-y-8">
                         <div>
                             <h3 className="text-xl font-bold mb-4 border-b pb-2">College Administrative Settings</h3>
                             <CollegeSettingsForm />
                         </div>
 
-                        {(role === 'HOD' || role === 'ADMIN') && (
+                        {role === 'HOD' && (
                             <div>
                                 <h3 className="text-xl font-bold mb-4 border-b pb-2">Academic Planning</h3>
                                 <div className="p-6 border rounded-lg bg-card text-card-foreground shadow-sm flex items-center justify-between">

@@ -7,6 +7,8 @@ export interface ICalendarEvent extends Document {
     endDate?: Date;
     type: 'HOLIDAY' | 'EXAM' | 'EVENT' | 'DEADLINE';
     createdBy: mongoose.Types.ObjectId; // Principal ID
+    departments?: mongoose.Types.ObjectId[]; // If empty, applies to all
+    facultyGroups?: mongoose.Types.ObjectId[]; // If empty, applies to all
 }
 
 const CalendarEventSchema = new Schema<ICalendarEvent>(
@@ -21,6 +23,8 @@ const CalendarEventSchema = new Schema<ICalendarEvent>(
             default: 'EVENT',
         },
         createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        departments: [{ type: Schema.Types.ObjectId, ref: 'Department' }],
+        facultyGroups: [{ type: Schema.Types.ObjectId, ref: 'FacultyGroup' }],
     },
     { timestamps: true }
 );

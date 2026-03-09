@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { IFacultyGroup } from '@/models/FacultyGroup';
-import { Card, CardContent, CardHeader, CardTitle, Button, SwissSubHeading } from '@/components/ui/SwissUI';
-import { Loader2, Wand2, CalendarCheck, AlertCircle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Loader2, Wand2, CalendarCheck, AlertCircle, FileText, BrainCircuit, Sparkles, ChevronRight, UploadCloud, Users, LayoutGrid, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { AIPlanTopicSchema } from '@/models/AIOutputSchema';
-import { z } from 'zod';
 import PlanViewer from './PlanViewer';
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { getPlanForGroup } from '@/app/actions/faculty';
 import { IPlan } from '@/models/Plan';
+import { cn } from '@/lib/utils';
 
 interface PlannerInterfaceProps {
     facultyGroups: IFacultyGroup[];
@@ -21,7 +21,6 @@ interface PlannerInterfaceProps {
     defaultGroupId?: string;
 }
 
-// Type for the AI response
 type GeneratedPlan = {
     subjectName?: string;
     plan: {
@@ -40,25 +39,26 @@ type GeneratedPlan = {
 export default function PlannerInterface({ facultyGroups, readOnly = false, initialPlan, defaultGroupId }: PlannerInterfaceProps) {
     const [selectedGroupId, setSelectedGroupId] = useState<string>(defaultGroupId || "");
     const [syllabusText, setSyllabusText] = useState<string>("");
-
-    // New State Fields
     const [subject, setSubject] = useState("");
-
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
-
-    // New Fields State
     const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
     const [availableMembers, setAvailableMembers] = useState<string[]>([]);
     const [facultyName, setFacultyName] = useState("");
+    const [secondaryFacultyName, setSecondaryFacultyName] = useState("");
     const [isParsing, setIsParsing] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleGroupChange = (value: string) => {
         setSelectedGroupId(value);
         const group = facultyGroups.find(g => (g._id as unknown as string) === value);
         if (group) {
-            setAvailableSubjects(group.subjects || []);
-            setAvailableMembers(group.members || []);
+            setAvailableSubjects((group as any).subjects || []);
+            setAvailableMembers((group as any).members || []);
             setSubject("");
             setFacultyName("");
         }
@@ -77,19 +77,20 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
             if (!res.ok) throw new Error("Failed to parse file");
             const data = await res.json();
             setSyllabusText(data.text);
-            toast.success("Syllabus Uploaded", { description: "Text extracted successfully." });
+            toast.success("Syllabus loaded", { description: "Text extracted from the document." });
         } catch (err) {
-            toast.error("Upload Failed", { description: "Could not extract text from file." });
+            toast.error("Upload failed", { description: "The file could not be read." });
         } finally {
             setIsParsing(false);
+            e.target.value = '';
         }
     };
 
-    const reconstructPlanData = (dbPlan: IPlan) => {
+    const reconstructPlanData = (dbPlan: any) => {
         const reconstructedPlan: GeneratedPlan = {
-            subjectName: dbPlan.subject,
+            subjectName: dbPlan.subject || (dbPlan.subject_id as any)?.name,
             metrics: {
-                total_weeks: Math.ceil((dbPlan.syllabus_topics?.length || 0) / 3), // Approx 3 lectures per week
+                total_weeks: Math.ceil((dbPlan.syllabus_topics?.length || 0) / 3),
                 total_lectures: dbPlan.syllabus_topics?.length || 0,
                 completion_date: dbPlan.syllabus_topics?.[dbPlan.syllabus_topics.length - 1]?.scheduled_date
                     ? new Date(dbPlan.syllabus_topics[dbPlan.syllabus_topics.length - 1].scheduled_date!).toISOString()
@@ -122,7 +123,7 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
 
             reconstructedPlan.plan.push({
                 week: currentWeek,
-                startDate: weekStart, // Actual dates from topics
+                startDate: weekStart,
                 endDate: weekEnd,
                 topics: weekTopics
             });
@@ -137,32 +138,27 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
         }
     }, [defaultGroupId, facultyGroups]);
 
-    // Fetch plan when group or subject changes in read-only mode
     useEffect(() => {
-        if (readOnly && selectedGroupId) {
+        if (selectedGroupId && subject) {
             const fetchPlan = async () => {
                 setIsGenerating(true);
                 const result = await getPlanForGroup(selectedGroupId, subject);
                 if (result.success && result.data) {
-                    const dbPlan = result.data as IPlan;
-                    // Auto-select the subject if we just fetched "latest" (subject was empty)
-                    if (!subject) setSubject(dbPlan.subject);
+                    const dbPlan = result.data as any;
+                    if (!subject) setSubject(dbPlan.subject || dbPlan.subject_id?.name || '');
                     setGeneratedPlan(reconstructPlanData(dbPlan));
                 } else {
                     setGeneratedPlan(null);
-                    if (!result.success && result.error !== "No plan found") {
-                        toast.error("Could not load plan");
-                    }
                 }
                 setIsGenerating(false);
             };
             fetchPlan();
         }
-    }, [selectedGroupId, subject, readOnly]);
+    }, [selectedGroupId, subject]);
 
     const handleGenerate = async () => {
         if (!selectedGroupId || !syllabusText.trim() || !subject) {
-            toast.error("Input missing", { description: "Please fill all fields." });
+            toast.error("Required fields missing");
             return;
         }
 
@@ -177,173 +173,205 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                     facultyGroupId: selectedGroupId,
                     syllabusText: syllabusText,
                     subject: subject,
-                    facultyName: facultyName
+                    facultyName: facultyName,
+                    facultyNames: [facultyName, secondaryFacultyName].filter(Boolean)
                 })
             });
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error || "Planning failed");
+                throw new Error(error.error || "Generation failed");
             }
 
-            // fetch the saved plan from DB to display it properly
             const result = await getPlanForGroup(selectedGroupId);
             if (result.success && result.data) {
                 const dbPlan = result.data as IPlan;
                 const finalGenerated = reconstructPlanData(dbPlan);
                 setGeneratedPlan(finalGenerated);
-                toast.success("Plan Generated", { description: `Created a ${finalGenerated.metrics.total_weeks}-week schedule.` });
+                toast.success("Schedule created", { description: `Plan for ${finalGenerated.metrics.total_weeks} weeks generated successfully.` });
             } else {
-                throw new Error("Plan was generated but could not be retrieved from database for viewing.");
+                throw new Error("Plan was generated but could not be saved correctly.");
             }
 
         } catch (error: any) {
-            toast.error("Generation Failed", { description: error.message });
+            toast.error("Creation failed", { description: error.message });
         } finally {
             setIsGenerating(false);
         }
     };
 
+    if (!mounted) {
+        return (
+            <div className={`grid ${readOnly && defaultGroupId ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-5'} gap-8`}>
+                {!(readOnly && defaultGroupId) && (
+                    <div className="lg:col-span-2 space-y-6">
+                        <Card className="shadow-lg border-border/60">
+                            <CardHeader className="pb-4 border-b bg-muted/20">
+                                <CardTitle className="text-xl font-black tracking-tight">Setup & Details</CardTitle>
+                                <CardDescription className="text-xs font-medium">Select a class group and subject to begin</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
     return (
-        <div className={`grid ${readOnly && defaultGroupId ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'} gap-8`}>
+        <div className={`grid ${readOnly && defaultGroupId ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-5'} gap-8`}>
 
-            {/* Input Section */}
+            {/* Config Panel */}
             {!(readOnly && defaultGroupId) && (
-                <div className="lg:col-span-1 space-y-6">
-                    <Card className={`h-fit sticky top-24 ${readOnly ? 'opacity-90' : ''}`}>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Wand2 className="w-5 h-5 text-primary" />
-                                Configuration
-                                {readOnly && <span className="ml-auto text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Read Only</span>}
-                            </CardTitle>
+                <div className="lg:col-span-2 space-y-6">
+                    <Card className="shadow-lg border-border/60">
+                        <CardHeader className="pb-4 border-b bg-muted/20">
+                            <CardTitle className="text-xl font-black tracking-tight">Setup & Details</CardTitle>
+                            <CardDescription className="text-xs font-medium">Select a class group and subject to begin</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-6">
 
+                        <CardContent className="p-6 space-y-6">
                             <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Faculty Group</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                        <Users className="w-3.5 h-3.5" /> Class Group
+                                    </label>
                                     <SearchableSelect
                                         options={facultyGroups.map(group => ({ value: group._id as unknown as string, label: group.name }))}
                                         value={selectedGroupId}
                                         onValueChange={handleGroupChange}
-                                        placeholder="Select Faculty Group..."
-                                        disabled={!!defaultGroupId} // Disable if fixed for student
+                                        placeholder="Choose Group..."
+                                        disabled={!!defaultGroupId}
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Subject / Course</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                        <FileText className="w-3.5 h-3.5" /> Subject
+                                    </label>
                                     <SearchableSelect
                                         disabled={!selectedGroupId}
-                                        options={availableSubjects.map(subj => ({ value: subj, label: subj }))}
+                                        options={availableSubjects.map((subj: any) => ({ value: subj.name || subj, label: subj.name || subj }))}
                                         value={subject}
                                         onValueChange={setSubject}
-                                        placeholder="Select Subject..."
+                                        placeholder="Choose Subject..."
                                     />
                                 </div>
 
                                 {!readOnly && (
                                     <>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Faculty Name</label>
-                                            <SearchableSelect
-                                                disabled={!selectedGroupId}
-                                                options={availableMembers.map(member => ({ value: member, label: member }))}
-                                                value={facultyName}
-                                                onValueChange={setFacultyName}
-                                                placeholder="Select Faculty Member..."
-                                            />
-                                        </div>
+                                        <div className="space-y-4 pt-4 border-t border-border/40">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                                    <UserCircle className="w-3.5 h-3.5" /> Primary Teacher
+                                                </label>
+                                                <SearchableSelect
+                                                    disabled={!selectedGroupId}
+                                                    options={availableMembers.map((member: any) => ({ value: member.name || member, label: member.name || member }))}
+                                                    value={facultyName}
+                                                    onValueChange={setFacultyName}
+                                                    placeholder="Assign Main Teacher..."
+                                                />
+                                            </div>
 
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Syllabus Content (Upload PDF to auto-fill or paste manually)</label>
-                                            <div className="flex flex-col gap-2">
-                                                <Input
-                                                    type="file"
-                                                    accept=".pdf,.txt"
-                                                    onChange={handleFileUpload}
-                                                    className="cursor-pointer bg-muted/20"
+                                            <div className="space-y-1.5 pb-4">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                                    <Sparkles className="w-3.5 h-3.5" /> Second Teacher (Optional)
+                                                </label>
+                                                <SearchableSelect
+                                                    disabled={!selectedGroupId}
+                                                    options={availableMembers.map((member: any) => ({ value: member.name || member, label: member.name || member }))}
+                                                    value={secondaryFacultyName}
+                                                    onValueChange={setSecondaryFacultyName}
+                                                    placeholder="For Split Syllabus..."
                                                 />
-                                                {isParsing && <p className="text-xs text-muted-foreground animate-pulse">Parsing file...</p>}
-                                                <Textarea
-                                                    placeholder="Syllabus text will appear here after upload..."
-                                                    className="min-h-[150px] font-mono text-sm resize-none"
-                                                    value={syllabusText}
-                                                    onChange={(e) => setSyllabusText(e.target.value)}
-                                                />
-                                                {syllabusText.length > 0 && syllabusText.length < 50 && (
-                                                    <p className="text-xs text-red-500">
-                                                        Text is too short ({syllabusText.length} chars). Minimum 50 required for AI generation.
-                                                    </p>
-                                                )}
+                                                <p className="text-[9px] text-muted-foreground italic">Required if syllabus is shared between two faculties.</p>
                                             </div>
                                         </div>
 
+                                        <div className="space-y-4">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                                <UploadCloud className="w-3.5 h-3.5" /> Syllabus
+                                            </label>
+                                            <div className="relative group border-2 border-dashed border-border/60 rounded-2xl p-8 bg-muted/10 hover:bg-muted/30 hover:border-primary/40 transition-all text-center">
+                                                <UploadCloud className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+                                                <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest">Import PDF or Text File</p>
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf,.txt"
+                                                    onChange={handleFileUpload}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                    title="Upload Syllabus"
+                                                />
+                                            </div>
+                                            {isParsing && (
+                                                <div className="flex items-center gap-2 justify-center py-2">
+                                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Reading Syllabus...</span>
+                                                </div>
+                                            )}
+                                            <Textarea
+                                                placeholder="Syllabus text will be extracted here..."
+                                                className="min-h-[120px] text-xs font-medium"
+                                                value={syllabusText}
+                                                onChange={(e) => setSyllabusText(e.target.value)}
+                                            />
+                                        </div>
+
                                         <Button
-                                            className="w-full"
-                                            size="lg"
+                                            className="w-full h-12 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20"
                                             onClick={handleGenerate}
                                             disabled={isGenerating || isParsing || !selectedGroupId || !syllabusText || !subject}
                                         >
                                             {isGenerating ? (
                                                 <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Plan...
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                                                 </>
                                             ) : (
-                                                <>
-                                                    <Wand2 className="mr-2 h-4 w-4" /> Generate Schedule
-                                                </>
+                                                <>Create Schedule</>
                                             )}
                                         </Button>
                                     </>
                                 )}
                             </div>
-
-                            {readOnly && selectedGroupId && (
-                                <div className="bg-muted/30 p-4 rounded-lg text-sm text-center text-muted-foreground">
-                                    Viewing plan for <span className="font-bold text-foreground">{subject || "Selected Group"}</span>.
-                                    Editing is disabled.
-                                </div>
-                            )}
-
                         </CardContent>
                     </Card>
                 </div>
             )}
 
-            {/* Output Section */}
-            <div className={readOnly && defaultGroupId ? 'lg:col-span-1' : 'lg:col-span-2'}>
+            {/* Viewer Panel */}
+            <div className={readOnly && defaultGroupId ? 'lg:col-span-1' : 'lg:col-span-3'}>
                 {generatedPlan ? (
                     <PlanViewer plan={generatedPlan} />
                 ) : (
-                    <Card className="h-[500px] flex flex-col items-center justify-center text-center border-dashed border-2 bg-muted/20">
+                    <Card className="h-[550px] flex flex-col items-center justify-center text-center border-dashed border-2 bg-muted/5 border-border shadow-sm rounded-3xl">
                         {isGenerating ? (
-                            <>
-                                <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-                                <h3 className="text-lg font-bold text-foreground">Loading Plan...</h3>
-                            </>
+                            <div className="space-y-6">
+                                <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+                                <h3 className="text-xl font-black text-foreground tracking-tight">Creating Plan</h3>
+                                <p className="text-muted-foreground text-xs font-medium max-w-xs">Organizing syllabus into weekly sessions...</p>
+                            </div>
                         ) : (
-                            <>
-                                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4 animate-pulse">
-                                    <CalendarCheck className="w-8 h-8 text-muted-foreground" />
+                            <div className="space-y-8 px-10">
+                                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto border border-primary/20">
+                                    <CalendarCheck className="w-8 h-8 text-primary" />
                                 </div>
-                                <h3 className="text-lg font-bold text-foreground">
-                                    {readOnly
-                                        ? (selectedGroupId ? (subject ? "No Plan Available" : "Select a Subject") : "Select a Group")
-                                        : "Ready to Plan"}
-                                </h3>
-                                <p className="text-muted-foreground max-w-sm mt-2">
-                                    {readOnly
-                                        ? (selectedGroupId ? (subject ? "No curriculum roadmap has been approved for this subject yet." : "Please choose a subject to view its curriculum roadmap.") : "Choose a faculty group to view the active academic calendar.")
-                                        : "Select a group and paste content to generate a deterministic, AI-optimized academic calendar."}
-                                </p>
-                            </>
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black text-foreground tracking-tight">
+                                        {readOnly
+                                            ? (selectedGroupId ? (subject ? "No Plan Found" : "Select Subject") : "Select Group and Subject")
+                                            : "Ready to Generate"}
+                                    </h3>
+                                    <p className="text-muted-foreground text-sm max-w-xs mx-auto font-medium leading-relaxed">
+                                        {readOnly
+                                            ? "Complete the group and subject selection to view the schedule."
+                                            : "Provide the syllabus and details to create a schedule."}
+                                    </p>
+                                </div>
+                            </div>
                         )}
                     </Card>
                 )}
             </div>
-
         </div>
     );
 }

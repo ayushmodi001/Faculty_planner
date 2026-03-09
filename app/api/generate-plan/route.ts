@@ -6,6 +6,7 @@ import FacultyGroup from '@/models/FacultyGroup';
 import AcademicCalendar from '@/models/AcademicCalendar';
 import CalendarEvent from '@/models/CalendarEvent';
 import Plan from '@/models/Plan';
+import Subject from '@/models/Subject';
 import { calculateAvailableSlots } from '@/utils/availability';
 import { AIPlanResponseSchema } from '../../../models/AIOutputSchema';
 import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
@@ -27,7 +28,8 @@ const InputSchema = z.object({
     facultyGroupId: z.string(),
     syllabusText: z.string().min(50),
     subject: z.string(),
-    facultyName: z.string().optional()
+    facultyName: z.string().optional(),
+    facultyNames: z.array(z.string()).optional()
 });
 
 export async function POST(req: NextRequest) {
@@ -36,7 +38,8 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
 
         // 1. Validate Input
-        const { facultyGroupId, syllabusText, subject, facultyName } = InputSchema.parse(body);
+        const { facultyGroupId, syllabusText, subject, facultyName, facultyNames } = InputSchema.parse(body);
+        const resolvedFacultyNames = facultyNames || (facultyName ? [facultyName] : []);
 
         // 2. Fetch Context Data
         const facultyGroup = await FacultyGroup.findById(facultyGroupId).lean();
@@ -86,7 +89,8 @@ export async function POST(req: NextRequest) {
         console.log(`[Planner] Expanded to ${dynamicHolidays.length} holiday dates from ${dynamicHolidayEvents.length} events.`);
 
         // Debug: Check timetable structure
-        console.log(`[Planner] Faculty Group: ${facultyGroup.name}, Timetable keys: ${Object.keys(facultyGroup.timetable || {}).join(', ')}`);
+        const ttForDebug = facultyGroup.timetable instanceof Map ? Object.fromEntries(facultyGroup.timetable) : (facultyGroup.timetable as any) || {};
+        console.log(`[Planner] Faculty Group: ${facultyGroup.name}, Timetable keys: ${Object.keys(ttForDebug).join(', ')}`);
 
         // Check for term validity
         if (facultyGroup.termStartDate && new Date(startDate) < new Date(facultyGroup.termStartDate)) {
@@ -140,17 +144,22 @@ export async function POST(req: NextRequest) {
 
         // 4. Construct Prompt Elements
         let facultyContext = "";
-        if (facultyName) {
-            const user = await User.findOne({ name: facultyName }).lean();
+        const facultyUserIds: any[] = [];
+
+        for (const name of resolvedFacultyNames) {
+            const user = await User.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } }).lean();
             if (user) {
+                facultyUserIds.push(user._id);
                 if (user.role === 'HOD') {
-                    facultyContext = "\n      FACULTY PROFILE [HOD]: The assigned faculty is a Head of Department with high experience. Optimize the schedule tightly and concisely. They teach efficiently without the need for large buffers.";
-                } else if (user.facultyType === 'JUNIOR') {
-                    facultyContext = "\n      FACULTY PROFILE [JUNIOR FACULTY]: The assigned faculty is a Junior member. They are often slower in teaching and inconsistent with pacing. **CRITICAL REQUIREMENT:** You MUST add extra buffer times/self-study sections to account for delays. Under NO circumstances should you tightly pack this schedule. It is highly recommended to assign MULTIPLE smaller topics to a single day (e.g., if you have wiggle room, compress theory but leave blank buffer slots, or add 'Revision / Buffer' topics) so they have room to breathe.";
+                    facultyContext += `\n      FACULTY PROFILE [${name} - HOD]: Experienced leadership.`;
                 } else if (user.facultyType === 'SENIOR') {
-                    facultyContext = "\n      FACULTY PROFILE [SENIOR FACULTY]: The assigned faculty is a Senior member. They are experienced and stick to the schedule. Maintain standard spacing.";
+                    facultyContext += `\n      FACULTY PROFILE [${name} - SENIOR]: Standard academic pacing.`;
                 }
             }
+        }
+
+        if (resolvedFacultyNames.length > 1) {
+            facultyContext += `\n      NOTE: This syllabus is SPLIT between ${resolvedFacultyNames.join(' and ')}. Focus on cohesive topic flow.`;
         }
 
         const systemPrompt = `
@@ -158,13 +167,13 @@ export async function POST(req: NextRequest) {
       Your goal is to parse a raw syllabus and map it into a strictly sequential list of INDIVIDUAL lecture topics.
 
       CRITICAL CONSTRAINTS:
-      - You have a STRICT TOTAL BUDGET of exactly ${totalSlots} lecture slots (60 mins each).
-      - **DO NOT** summarize an entire Unit/Chapter into a single generic title like "Unit 1 - Lecture 1". 
-      - You MUST extract the SPECIFIC SUB-TOPICS detailed in the syllabus (e.g. "Introduction to Verification", "White Box Testing", "Decision Tables") and assign ONE concrete sub-topic to each lecture.
+      - You have a MAXIMUM BUDGET of ${totalSlots} lecture slots.
+      - **DO NOT** add extra "Buffer", "Revision", "Practice", or "Review" sessions unless they are explicitly written in the syllabus provided.
+      - **DO NOT** feel the need to fill all ${totalSlots} slots. Stop once you have mapped the entire syllabus.
+      - Extract the SPECIFIC SUB-TOPICS detailed in the syllabus and assign ONE concrete sub-topic to each lecture.
       - If a single sub-topic is very large, split it: "White Box Testing - Part 1", "White Box Testing - Part 2".
-      - If the syllabus contains duration indicators (like "Hours: 8" for a unit), spread the specific sub-topics of that unit across exactly 8 lectures.
-      - If the syllabus is too long for the ${totalSlots} budget, mark less critical or advanced sub-topics as "is_self_study: true".
-      - Maintain logical prerequisite order.
+      - If the syllabus contains duration indicators (like "Hours: 8" for a unit), map exactly 8 lectures for that unit's sub-topics.
+      - If the syllabus is too long for the ${totalSlots} budget, mark less critical or advanced sub-topics as "is_self_study: true". Self-study topics DO NOT count towards the ${totalSlots} lecture limit.
       
       OUTPUT FORMAT:
       Return ONLY a JSON object matching this schema:
@@ -175,10 +184,10 @@ export async function POST(req: NextRequest) {
             "duration_mins": 60, 
             "is_self_study": false, 
             "sequence_order": 1,
-            "reason_for_decision": "Core concept"
+            "reason_for_decision": "Mapping syllabus content"
           }
         ],
-        "total_lectures_planned": <must equal exactly ${totalSlots} including self-study bypass>,
+        "total_lectures_planned": <total number of non-self-study topics, should be <= ${totalSlots}>,
         "metadata": { "notes": "Any assumptions made" }
       }
     `;
@@ -188,7 +197,7 @@ export async function POST(req: NextRequest) {
         const openai = getOpenAI();
 
         const completion = await openai.chat.completions.create({
-            model: "openai/gpt-oss-120bi", // Better performance for JSON tasks
+            model: "openai/gpt-oss-120b", // Better performance for JSON tasks
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: `Here is the syllabus for ${subject}:\n\n${syllabusText}` }
@@ -271,16 +280,28 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 8. Inactivate previous plans for the same group & subject
-        await Plan.updateMany(
-            { faculty_id: facultyGroupId, subject: subject },
-            { $set: { status: 'INACTIVE' } }
-        );
+        // 8. Resolve precise referential ObjectIds for DB Plan Creation
+        const foundSubject = await Subject.findOne({ name: subject });
 
-        // 9. Save Plan to DB
+        if (!foundSubject) throw new Error("Could not resolve Subject ID. Make sure subject exists in registry.");
+        if (facultyUserIds.length === 0) throw new Error("Could not resolve any Faculty User IDs. Ensure teachers are registered.");
+
+        // Find interfering events ids to map them
+        const interferingEvents = await CalendarEvent.find({
+            date: { $gte: new Date(startDate), $lte: new Date(endDate) }
+        });
+
+        // 9. Inactivate previous plans for the same group & subject
+        await Plan.updateMany(
+            { faculty_group_id: facultyGroupId, subject_id: foundSubject._id },
+            { $set: { status: 'ARCHIVED' } }
+        );        // 10. Save Plan to DB
         const newPlan = await Plan.create({
-            faculty_id: facultyGroupId,
-            subject: subject,
+            faculty_group_id: facultyGroupId,
+            faculty_ids: facultyUserIds,
+            subject_id: foundSubject._id,
+            department_id: facultyGroup.department_id,
+            events_id: interferingEvents.map(e => e._id),
             lecture_duration_mins: 60,
             total_slots_available: totalSlots,
             status: 'ACTIVE',

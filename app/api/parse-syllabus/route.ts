@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+// Import directly from lib to avoid index.js side-effects/buggy test logic
 // @ts-ignore
-import PDFParser from 'pdf2json';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
 export async function POST(req: NextRequest) {
-    console.log("Parsing PDF with pdf2json...");
+    console.log("Parsing PDF...");
     try {
         const formData = await req.formData();
         const file = formData.get('file') as File;
@@ -17,37 +18,24 @@ export async function POST(req: NextRequest) {
         let text = '';
 
         if (file.type === 'application/pdf') {
-            const parser = new PDFParser(null, 1 as unknown as boolean); // 1 = text content enabled
-
-            text = await new Promise((resolve, reject) => {
-                parser.on("pdfParser_dataError", (errData: any) => {
-                    console.error("PDF Parser Error:", errData.parserError);
-                    reject(errData.parserError);
-                });
-
-                parser.on("pdfParser_dataReady", () => {
-                    // getRawTextContent() returns the text content from the parsed PDF
-                    const rawText = parser.getRawTextContent();
-                    resolve(rawText);
-                });
-
-                try {
-                    parser.parseBuffer(buffer);
-                } catch (e) {
-                    reject(e);
-                }
-            });
-
+            try {
+                const data = await pdfParse(buffer);
+                text = data.text;
+                console.log("Successfully extracted text. Length:", text.length);
+            } catch (pdfError: any) {
+                console.error("pdf-parse Error:", pdfError);
+                throw new Error(`PDF extraction failed: ${pdfError.message}`);
+            }
         } else if (file.type === 'text/plain') {
             text = buffer.toString('utf-8');
         } else {
             return NextResponse.json({ error: "Unsupported file type. Use PDF or TXT." }, { status: 400 });
         }
 
-        // Clean up the text (pdf2json sometimes leaves artifacts)
-        // It often has page breaks like ----------------Page (0) Break----------------
+        // Clean up the text
         const cleanedText = text
-            .replace(/----------------Page \(\d+\) Break----------------/g, '\n')
+            .replace(/\r\n/g, '\n')
+            .replace(/\n\s*\n/g, '\n\n') // Consolidate multiple newlines
             .trim();
 
         if (!cleanedText || cleanedText.length === 0) {

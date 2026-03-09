@@ -2,13 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui/SwissUI';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { createCalendarEvent, getCalendarEvents, deleteCalendarEvent, updateCalendarEvent } from '@/app/actions/calendar';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, CalendarRange, Edit } from 'lucide-react';
+import { Loader2, Plus, Trash2, CalendarRange, Edit, ChevronRight, Hash, Send, Clock, Sparkles, CalendarDays } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface CalendarInterfaceProps {
     readOnly?: boolean;
@@ -23,7 +27,6 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
     const [editingId, setEditingId] = useState<string | null>(null);
     const [viewingEvent, setViewingEvent] = useState<any | null>(null);
 
-    // New Event State
     const [newEvent, setNewEvent] = useState({
         title: '',
         type: 'EVENT',
@@ -44,7 +47,6 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
 
     const handleSaveEvent = async () => {
         if (!date || !newEvent.title) return;
-
         try {
             if (editingId) {
                 await updateCalendarEvent(editingId, {
@@ -53,7 +55,7 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                     endDate: newEvent.endDate ? new Date(newEvent.endDate) : undefined,
                     type: newEvent.type as any
                 });
-                toast.success('Event Updated');
+                toast.success('Event updated');
             } else {
                 await createCalendarEvent({
                     ...newEvent,
@@ -61,7 +63,7 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                     endDate: newEvent.endDate ? new Date(newEvent.endDate) : undefined,
                     type: newEvent.type as any
                 });
-                toast.success('Event Added');
+                toast.success('Event created');
             }
             setIsDialogOpen(false);
             setNewEvent({ title: '', type: 'EVENT', description: '', endDate: '' });
@@ -79,24 +81,19 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
             description: event.description || '',
             endDate: event.endDate ? new Date(event.endDate).toISOString().split('T')[0] : ''
         });
-        // We keep the calendar selection as is, or update it?
-        // Updating calendar selection might be confusing if editing event on different day.
-        // But for simplicity, let's assume user clicked on the day.
-        // Actually, the list only shows events for selected date. So date is already correct.
         setEditingId(event._id);
         setIsDialogOpen(true);
     };
 
     const handleDeleteEvent = async (id: string) => {
-        if (confirm('Delete this event?')) {
+        if (confirm('Are you sure you want to delete this event?')) {
             await deleteCalendarEvent(id);
             setViewingEvent(null);
             loadEvents();
-            toast.success('Event Deleted');
+            toast.success('Event deleted');
         }
     };
 
-    // Date range helper
     const isDateInRange = (d: Date, startStr: string, endStr?: string) => {
         const target = new Date(d).setHours(0, 0, 0, 0);
         const start = new Date(startStr).setHours(0, 0, 0, 0);
@@ -107,7 +104,6 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
         return target === start;
     };
 
-    // Filter events for the currently viewed month
     const monthEvents = events.filter(e => {
         const eDate = new Date(e.date);
         const eEndDate = e.endDate ? new Date(e.endDate) : eDate;
@@ -117,35 +113,40 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
         );
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Generate modifiers
     const isHoliday = (d: Date) => events.some(e => e.type === 'HOLIDAY' && isDateInRange(d, e.date, e.endDate));
     const isExam = (d: Date) => events.some(e => e.type === 'EXAM' && isDateInRange(d, e.date, e.endDate));
     const isDeadline = (d: Date) => events.some(e => e.type === 'DEADLINE' && isDateInRange(d, e.date, e.endDate));
     const isGeneralEvent = (d: Date) => events.some(e => e.type === 'EVENT' && isDateInRange(d, e.date, e.endDate));
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <div className="md:col-span-8">
-                <Card className="h-full border-none shadow-md">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <CalendarRange className="w-5 h-5" />
-                            Academic Calendar
-                        </CardTitle>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-500">
+            {/* Calendar Main Section */}
+            <div className="lg:col-span-8">
+                <Card className="shadow-sm border-slate-200 h-full overflow-hidden">
+                    <CardHeader className="bg-slate-50 border-b py-5 px-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-100">
+                                <CalendarDays className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-bold text-slate-900">Academic Calendar</CardTitle>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plan & Schedule</p>
+                            </div>
+                        </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-8">
                         <Calendar
                             mode="single"
                             selected={date}
                             onSelect={setDate}
                             month={currentMonth}
                             onMonthChange={setCurrentMonth}
-                            className="rounded-md border mx-auto w-full p-6 flex justify-center scale-110 mt-6 mb-6"
+                            className="w-full flex justify-center py-6"
                             classNames={{
-                                head_cell: "text-muted-foreground w-12 font-bold text-sm",
-                                cell: "text-center text-sm p-0 w-12 h-12 flex items-center justify-center",
-                                day: "h-10 w-10 hover:bg-accent hover:text-accent-foreground font-medium rounded-full",
-                                day_selected: "bg-primary text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                                head_cell: "text-slate-400 font-bold text-[10px] uppercase tracking-wider",
+                                day: "h-11 w-11 hover:bg-slate-50 hover:text-blue-600 font-bold rounded-xl transition-all",
+                                day_selected: "bg-blue-600 text-white hover:bg-blue-700 hover:text-white shadow-md",
+                                day_today: "border-2 border-blue-100 text-blue-600 font-bold"
                             }}
                             modifiers={{
                                 holiday: isHoliday,
@@ -154,66 +155,74 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                 event: isGeneralEvent
                             }}
                             modifiersStyles={{
-                                holiday: { backgroundColor: '#fee2e2', color: '#dc2626', fontWeight: 'bold' },
-                                exam: { backgroundColor: '#fef08a', color: '#ca8a04', fontWeight: 'bold' },
-                                deadline: { backgroundColor: '#ffedd5', color: '#ea580c', fontWeight: 'bold' },
-                                event: { backgroundColor: '#dbeafe', color: '#2563eb', fontWeight: 'bold' }
+                                holiday: { backgroundColor: '#fee2e2', borderRadius: '10px', color: '#ef4444' },
+                                exam: { backgroundColor: '#fef9c3', borderRadius: '10px', color: '#a16207' },
+                                deadline: { backgroundColor: '#ffedd5', borderRadius: '10px', color: '#ea580c' },
+                                event: { backgroundColor: '#dbeafe', borderRadius: '10px', color: '#2563eb' }
                             }}
                         />
-                        <div className="flex flex-wrap gap-4 mt-8 justify-center text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#fee2e2] border border-[#dc2626]"></span> Holiday</div>
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#fef08a] border border-[#ca8a04]"></span> Exam</div>
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#ffedd5] border border-[#ea580c]"></span> Deadline</div>
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#dbeafe] border border-[#2563eb]"></span> Event</div>
+
+                        <div className="flex flex-wrap gap-8 mt-10 justify-center border-t pt-8">
+                            <LegendItem color="bg-red-400" label="Holiday" />
+                            <LegendItem color="bg-yellow-400" label="Examination" />
+                            <LegendItem color="bg-orange-400" label="Deadline" />
+                            <LegendItem color="bg-blue-400" label="General" />
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="md:col-span-4 space-y-4">
-                <Card className="h-full border-none shadow-sm bg-muted/20">
-                    <CardHeader>
-                        <CardTitle className="text-lg">
-                            {currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} Events
+            {/* Sidebar with Events */}
+            <div className="lg:col-span-4 space-y-6 flex flex-col">
+                <Card className="shadow-sm border-slate-200 flex-1 flex flex-col overflow-hidden">
+                    <CardHeader className="py-6 px-8">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Upcoming Events</p>
+                        <CardTitle className="text-2xl font-bold text-slate-900">
+                            {format(currentMonth, 'MMMM yyyy')}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+
+                    <CardContent className="px-6 flex-1 space-y-3 overflow-y-auto">
                         {isLoading ? (
-                            <Loader2 className="animate-spin w-8 h-8 mx-auto opacity-50" />
+                            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                <Loader2 className="animate-spin w-8 h-8 text-blue-600" />
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Loading events...</p>
+                            </div>
                         ) : monthEvents.length > 0 ? (
-                            monthEvents.map(event => (
-                                <div
-                                    key={event._id}
-                                    className="p-3 bg-background rounded-lg border shadow-sm cursor-pointer hover:border-primary transition-all group"
-                                    onClick={() => setViewingEvent(event)}
-                                >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <div className="font-bold text-sm tracking-tight">{event.title}</div>
-                                        <Badge
-                                            variant="default"
-                                            className={`text-[9px] uppercase font-bold
-                                                ${event.type === 'HOLIDAY' ? 'border-red-200 text-red-600 bg-red-50' :
-                                                    event.type === 'EXAM' ? 'border-yellow-200 text-yellow-600 bg-yellow-50' :
-                                                        event.type === 'DEADLINE' ? 'border-orange-200 text-orange-600 bg-orange-50' :
-                                                            'border-blue-200 text-blue-600 bg-blue-50'}
-                                            `}
-                                        >
-                                            {event.type}
-                                        </Badge>
+                            <div className="space-y-3">
+                                {monthEvents.map(event => (
+                                    <div
+                                        key={event._id}
+                                        className="group p-4 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-100 rounded-2xl cursor-pointer transition-all"
+                                        onClick={() => setViewingEvent(event)}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{event.title}</div>
+                                            <Badge variant="secondary" className={cn("rounded-md text-[8px] font-bold uppercase tracking-tight h-5 px-2",
+                                                event.type === 'HOLIDAY' ? 'bg-red-50 text-red-600 border-red-100' :
+                                                    event.type === 'EXAM' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                                                        event.type === 'DEADLINE' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-blue-50 text-blue-600 border-blue-100')}>
+                                                {event.type}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                            <Clock className="w-3 h-3" />
+                                            {format(new Date(event.date), 'MMM d')}
+                                            {event.endDate && event.endDate !== event.date && ` — ${format(new Date(event.endDate), 'MMM d')}`}
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-muted-foreground font-mono">
-                                        {new Date(event.date).toLocaleDateString()}
-                                        {event.endDate && event.endDate !== event.date && ` - ${new Date(event.endDate).toLocaleDateString()}`}
-                                    </div>
-                                </div>
-                            ))
+                                ))}
+                            </div>
                         ) : (
-                            <div className="text-center py-12 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
-                                No events scheduled for this month.
+                            <div className="py-20 text-center rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 space-y-2">
+                                <Sparkles className="w-8 h-8 text-slate-200 mx-auto" />
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No events scheduled</p>
                             </div>
                         )}
+                    </CardContent>
 
-                        {!readOnly && date && (
+                    {!readOnly && date && (
+                        <div className="p-6 pt-0 mt-4">
                             <Dialog open={isDialogOpen} onOpenChange={(open) => {
                                 setIsDialogOpen(open);
                                 if (!open) {
@@ -222,115 +231,134 @@ export default function CalendarInterface({ readOnly = false }: CalendarInterfac
                                 }
                             }}>
                                 <DialogTrigger asChild>
-                                    <Button className="w-full mt-4" variant="outline">
-                                        <Plus className="w-4 h-4 mr-2" /> Add Event
+                                    <Button className="w-full h-12 font-bold uppercase tracking-wider text-xs gap-2 shadow-sm">
+                                        <Plus className="w-4 h-4" /> Add Event
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent>
+                                <DialogContent className="max-w-md">
                                     <DialogHeader>
-                                        <DialogTitle>{editingId ? 'Edit Event' : 'Add Event'} for {date.toLocaleDateString()}</DialogTitle>
+                                        <DialogTitle className="text-xl font-bold">{editingId ? 'Edit Event' : 'New Event'}</DialogTitle>
                                     </DialogHeader>
-                                    <div className="space-y-4 py-4">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Event Title</label>
+                                    <div className="space-y-4 pt-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Event Title</label>
                                             <Input
                                                 value={newEvent.title}
                                                 onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                                                placeholder="e.g. Mid-Term Exams"
+                                                placeholder="e.g. Mid-term Exams"
+                                                className="font-bold"
                                             />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium">Start Date</label>
-                                                <Input value={date.toLocaleDateString()} disabled className="bg-muted" />
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
+                                                <Input value={format(date, 'MMM d, yyyy')} disabled className="bg-slate-50 font-medium" />
                                             </div>
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium">End Date (Optional)</label>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End Date (Optional)</label>
                                                 <Input
                                                     type="date"
                                                     min={date.toISOString().split('T')[0]}
                                                     value={newEvent.endDate}
                                                     onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })}
+                                                    className="font-medium"
                                                 />
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Type</label>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Event Category</label>
                                             <Select
                                                 value={newEvent.type}
                                                 onValueChange={(val) => setNewEvent({ ...newEvent, type: val })}
                                             >
-                                                <SelectTrigger>
+                                                <SelectTrigger className="font-bold">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="EVENT">General Event</SelectItem>
                                                     <SelectItem value="HOLIDAY">Holiday</SelectItem>
                                                     <SelectItem value="EXAM">Examination</SelectItem>
-                                                    <SelectItem value="DEADLINE">Deadline</SelectItem>
+                                                    <SelectItem value="DEADLINE">Academic Deadline</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button onClick={handleSaveEvent} className="w-full">
-                                            {editingId ? 'Update Event' : 'Save Event'}
+                                        <Button onClick={handleSaveEvent} className="w-full h-11 font-bold uppercase tracking-wider text-xs mt-4">
+                                            {editingId ? 'Save Changes' : 'Create Event'}
                                         </Button>
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                        )}
-                    </CardContent>
+                        </div>
+                    )}
                 </Card>
             </div>
 
-            {/* View/Edit Details Dialog */}
+            {/* Event Details Viewer */}
             <Dialog open={!!viewingEvent} onOpenChange={(open) => !open && setViewingEvent(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-xl">{viewingEvent?.title}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <Badge
-                            variant="default"
-                            className={`uppercase font-bold
-                                ${viewingEvent?.type === 'HOLIDAY' ? 'border-red-200 text-red-600 bg-red-50' :
-                                    viewingEvent?.type === 'EXAM' ? 'border-yellow-200 text-yellow-600 bg-yellow-50' :
-                                        viewingEvent?.type === 'DEADLINE' ? 'border-orange-200 text-orange-600 bg-orange-50' :
-                                            'border-blue-200 text-blue-600 bg-blue-50'}
-                            `}
-                        >
-                            {viewingEvent?.type}
-                        </Badge>
-                        <div className="text-sm border-l-2 pl-3 border-muted">
-                            <span className="font-semibold text-muted-foreground block mb-1">Date Range</span>
-                            <div className="font-mono text-foreground font-bold">
-                                {viewingEvent && new Date(viewingEvent.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                {viewingEvent?.endDate && viewingEvent.endDate !== viewingEvent.date && (
-                                    <> <br /><span className="text-muted-foreground font-normal">to</span> <br />{new Date(viewingEvent.endDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</>
-                                )}
+                <DialogContent className="max-w-md">
+                    <div className="space-y-6 pt-4">
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                                <DialogTitle className="text-2xl font-bold text-slate-900 uppercase tracking-tight leading-tight">{viewingEvent?.title}</DialogTitle>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{viewingEvent?.type}</p>
                             </div>
+                            <Badge variant="secondary" className={cn("rounded-md px-3 py-1",
+                                viewingEvent?.type === 'HOLIDAY' ? 'bg-red-50 text-red-600' :
+                                    viewingEvent?.type === 'EXAM' ? 'bg-yellow-50 text-yellow-700' :
+                                        viewingEvent?.type === 'DEADLINE' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600')}>
+                                {viewingEvent?.type}
+                            </Badge>
                         </div>
-                        {viewingEvent?.description && (
-                            <div className="text-sm bg-muted/30 p-4 rounded-md">
-                                {viewingEvent.description}
+
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-blue-600 border">
+                                    <Clock className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Scheduled Date</p>
+                                    <p className="font-bold text-slate-900 text-sm">
+                                        {viewingEvent && format(new Date(viewingEvent.date), 'EEEE, MMMM do')}
+                                        {viewingEvent?.endDate && viewingEvent.endDate !== viewingEvent.date && (
+                                            <> <span className="mx-2 text-slate-300">—</span> {format(new Date(viewingEvent.endDate), 'EEEE, MMMM do')}</>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {viewingEvent?.description && (
+                                <div className="pt-4 border-t border-slate-200">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Description</p>
+                                    <p className="text-sm font-medium text-slate-600 italic">{viewingEvent.description}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {!readOnly && (
+                            <div className="flex gap-3">
+                                <Button variant="outline" className="flex-1 h-11 font-bold uppercase tracking-wider text-xs" onClick={() => {
+                                    handleEditClick(viewingEvent);
+                                    setViewingEvent(null);
+                                }}>
+                                    <Edit className="w-4 h-4 mr-2" /> Edit
+                                </Button>
+                                <Button variant="destructive" className="flex-1 h-11 font-bold uppercase tracking-wider text-xs" onClick={() => handleDeleteEvent(viewingEvent._id)}>
+                                    <Trash2 className="w-4 h-4 mr-2" /> Delete
+                                </Button>
                             </div>
                         )}
                     </div>
-                    {!readOnly && (
-                        <div className="flex justify-end gap-2 border-t pt-4">
-                            <Button variant="outline" onClick={() => {
-                                handleEditClick(viewingEvent);
-                                setViewingEvent(null);
-                            }}>
-                                <Edit className="w-4 h-4 mr-2" /> Edit
-                            </Button>
-                            <Button variant="destructive" onClick={() => handleDeleteEvent(viewingEvent._id)}>
-                                <Trash2 className="w-4 h-4 mr-2" /> Delete
-                            </Button>
-                        </div>
-                    )}
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
 
+function LegendItem({ color, label }: any) {
+    return (
+        <div className="flex items-center gap-2">
+            <div className={cn("w-3 h-3 rounded-full", color)} />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
         </div>
     );
 }

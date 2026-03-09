@@ -9,8 +9,7 @@ import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
 
 export async function POST(req: NextRequest) {
     try {
-        await dbConnect();
-        const { planId, topicId, status } = await req.json();
+        await dbConnect();        const { planId, topicId, status, missed_reason, missed_reason_custom, marked_at } = await req.json();
 
         if (!planId || !topicId || !status) {
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -24,6 +23,16 @@ export async function POST(req: NextRequest) {
 
         const topic = plan.syllabus_topics[topicIndex];
         topic.completion_status = status;
+        topic.marked_at = marked_at ? new Date(marked_at) : new Date();
+
+        if (status === 'MISSED') {
+            topic.missed_reason = missed_reason || undefined;
+            topic.missed_reason_custom = missed_reason === 'OTHER' ? (missed_reason_custom || undefined) : undefined;
+        } else {
+            // Clear reason fields if not missed
+            topic.missed_reason = undefined;
+            topic.missed_reason_custom = undefined;
+        }
 
         if (status === 'CONTINUED') {
             // Need to insert a duplicate topic & shift dates
@@ -46,8 +55,12 @@ export async function POST(req: NextRequest) {
 
             // Now, we must RECALCULATE all remaining PENDING topics' dates.
             // First, fetch the context:
-            const facultyGroup = await FacultyGroup.findById(plan.faculty_id).lean();
+            const facultyGroup = await FacultyGroup.findById(plan.faculty_group_id).lean();
             if (!facultyGroup) throw new Error("Faculty group not found");
+
+            if (!facultyGroup.termStartDate || !facultyGroup.termEndDate) {
+                throw new Error('Faculty group has no term dates configured. Cannot reschedule topics.');
+            }
 
             const startDate = new Date(facultyGroup.termStartDate).toISOString().split('T')[0];
             const endDate = new Date(facultyGroup.termEndDate).toISOString().split('T')[0];
@@ -77,13 +90,17 @@ export async function POST(req: NextRequest) {
                 }
             });
 
+            // Ensure subject name is resolved for recalculation
+            await plan.populate('subject_id');
+            const subjectName = (plan.subject_id as any)?.name;
+
             // Re-calculate the deterministic slots (the 'budget')
             const { schedule, totalSlots } = calculateAvailableSlots(
                 new Date(startDate),
                 new Date(endDate),
                 facultyGroup as any,
                 calendar as any,
-                plan.subject,
+                subjectName,
                 dynamicHolidays
             );
 

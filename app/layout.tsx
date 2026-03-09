@@ -13,6 +13,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "UAPS | University Academic Planning System",
   description: "Enterprise Academic Scheduling & Planning",
+  icons: {
+    icon: "/l.png",
+  },
 };
 
 export default function RootLayout({

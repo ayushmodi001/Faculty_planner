@@ -1,13 +1,31 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
-import { ArrowRight, Book, Calendar, CheckCircle2, GraduationCap, TrendingUp, BookOpen, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    ArrowRight,
+    Book,
+    Calendar,
+    CheckCircle2,
+    GraduationCap,
+    TrendingUp,
+    BookOpen,
+    Clock,
+    LayoutGrid,
+    Sparkles,
+    ChevronRight,
+    Activity,
+    MapPin
+} from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
 import User from '@/models/User';
 import FacultyGroup from '@/models/FacultyGroup';
 import Plan from '@/models/Plan';
+import Subject from '@/models/Subject';
 import dbConnect from '@/lib/db';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,224 +38,185 @@ export default async function StudentDashboard() {
     let studentGroup = "Unassigned";
     let nextClass: any = null;
     let courseProgress: any[] = [];
+    let userName = "Student";
 
     if (token) {
         const session = await verifyJWT(token);
         if (session) {
-            const user = await User.findById(session.id).lean();
-            if (user && user.facultyGroupId) {
-                const group = await FacultyGroup.findById(user.facultyGroupId).lean();
-                if (group) {
-                    studentGroup = group.name;
+            const user = await User.findById(session.sub).lean();
+            if (user) {
+                userName = user.name.split(' ')[0];                if (user.facultyGroupId) {
+                    const group = await FacultyGroup.findById(user.facultyGroupId)
+                        .populate('subjectAssignments.subject_id', 'name')
+                        .lean();
+                    if (group) {
+                        studentGroup = group.name;
+                        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        const todayStr = days[new Date().getDay()];
+                        const timetableMap = group.timetable instanceof Map
+                            ? Object.fromEntries(group.timetable)
+                            : (group.timetable as any) || {};
+                        const todaySlots = timetableMap[todayStr] || [];
+                        if (todaySlots.length > 0) nextClass = todaySlots[0];
 
-                    // --- Get Next Class logic ---
-                    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                    const todayStr = days[new Date().getDay()];
-                    const todaySlots = group.timetable?.[todayStr] || [];
-
-                    // Simple logic: just grab the first slot of the day as "Next Class" for demo purposes, 
-                    // or sort by time.
-                    if (todaySlots.length > 0) {
-                        nextClass = todaySlots[0];
+                        const plans = await Plan.find({ faculty_group_id: group._id })
+                            .populate('subject_id', 'name')
+                            .lean();
+                        const subjectsFound = new Set<string>();
+                        plans.forEach((p: any) => {
+                            const subjectName = p.subject_id?.name || p.subject || 'Unknown';
+                            if (!subjectsFound.has(subjectName)) {
+                                subjectsFound.add(subjectName);
+                                const total = p.syllabus_topics?.length || 0;
+                                const completed = p.syllabus_topics?.filter((t: any) => t.completion_status === 'DONE').length || 0;
+                                courseProgress.push({
+                                    subject: subjectName,
+                                    progress: total === 0 ? 0 : Math.round((completed / total) * 100)
+                                });
+                            }
+                        });
+                        // Fill in subjects from subjectAssignments that have no plan yet
+                        const seenSubjects = new Set(
+                            (group.subjectAssignments as any[] || []).map((a: any) => a.subject_id?.name).filter(Boolean)
+                        );
+                        seenSubjects.forEach((name: string) => {
+                            if (!subjectsFound.has(name)) {
+                                courseProgress.push({ subject: name, progress: 0 });
+                            }
+                        });
                     }
-
-                    // --- Get Progress Logic ---
-                    const plans = await Plan.find({ faculty_id: group._id }).lean();
-                    const subjectsFound = new Set();
-                    plans.forEach((p: any) => {
-                        if (!subjectsFound.has(p.subject)) {
-                            subjectsFound.add(p.subject);
-                            const total = p.syllabus_topics?.length || 0;
-                            const completed = p.syllabus_topics?.filter((t: any) => t.completion_status === 'DONE').length || 0;
-                            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-
-                            courseProgress.push({
-                                subject: p.subject,
-                                progress: percent
-                            });
-                        }
-                    });
-
-                    // Pad with group's subjects if no plans generated yet
-                    (group.subjects || []).forEach((subj: string) => {
-                        if (!subjectsFound.has(subj)) {
-                            courseProgress.push({ subject: subj, progress: 0 });
-                        }
-                    });
-                } else if (user.facultyGroupName) {
-                    studentGroup = user.facultyGroupName;
                 }
             }
         }
     }
 
-    // Colors sequence for UI
-    const colors = [
-        { color: "bg-[#283618]", text: "text-[#FEFAE0]" },
-        { color: "bg-[#A6835B]", text: "text-white" },
-        { color: "bg-[#5C6836]", text: "text-white" },
-        { color: "bg-[#C9C3A3]", text: "text-[#283618]" }
-    ];
-
     return (
         <DashboardLayout role="Student">
-            {/* Header Section */}
-            <div className="mb-10 max-w-4xl animate-in slide-in-from-bottom-5 duration-500">
-                <div className="flex items-center gap-3 mb-4">
-                    <span className="px-3 py-1 rounded-full bg-[#E9E5D0] text-[#5C6836] text-xs font-bold uppercase tracking-wider border border-[#C9C3A3]">
-                        Student Portal
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-[#283618] text-[#FEFAE0] text-xs font-bold uppercase tracking-wider border border-[#283618]">
-                        {studentGroup}
-                    </span>
-                </div>
-                <SwissHeading className="text-4xl md:text-6xl mb-4 text-[#283618] tracking-tight">
-                    My <span className="text-[#A6835B] font-serif italic">Academics</span>
-                </SwissHeading>
-                <p className="text-lg text-[#5C6836] leading-relaxed max-w-2xl font-medium">
-                    Monitor your attendance, track assignments, and view course progression.
-                </p>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
-
-                {/* Next Class Card - Dark Green */}
-                <Card className="bg-[#283618] text-[#FEFAE0] border-none col-span-1 md:col-span-2 relative overflow-hidden rounded-[24px] shadow-xl group hover:scale-[1.01] transition-transform duration-300">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#5C6836] rounded-full opacity-20 blur-[80px] -mr-16 -mt-16 group-hover:opacity-30 transition-opacity"></div>
-                    <CardHeader className="relative z-10 pb-2">
-                        <div className="flex justify-between items-start">
-                            <Badge className="bg-[#A6835B] text-white border-none mb-3 animate-pulse">Now / Next</Badge>
-                            <Clock className="w-5 h-5 text-[#C9C3A3]" />
-                        </div>
-                        <CardTitle className="text-3xl md:text-4xl font-black tracking-tight text-white">
-                            {nextClass ? nextClass.subject : "No Classes Scheduled Today"}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="relative z-10">
-                        {nextClass && (
-                            <>
-                                <p className="text-[#C9C3A3] mb-6 font-medium text-lg">
-                                    {nextClass.faculty ? `Prof. ${nextClass.faculty}` : "Standard Lecture"}
-                                </p>
-                                <div className="flex gap-6 text-sm font-bold uppercase tracking-wide text-[#E9E5D0]">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-[#A6835B]"></span>
-                                        {nextClass.startTime} - {nextClass.endTime}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-[#5C6836]"></span>
-                                        {nextClass.room || 'TBD'}
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                        {!nextClass && (
-                            <p className="text-[#C9C3A3] font-medium text-lg">Enjoy your free time or use it for self-study.</p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Attendance Card */}
-                <Card className="flex flex-col justify-between border-none shadow-md bg-white rounded-[24px] ring-1 ring-[#C9C3A3]/30 overflow-hidden relative group">
-                    <CardHeader className="pb-1">
-                        <div className="flex justify-between items-center mb-2">
-                            <div className="p-2 bg-[#E9E5D0] rounded-xl text-[#5C6836]">
-                                <CheckCircle2 className="w-5 h-5" />
-                            </div>
-                            <span className="text-xs font-bold text-[#A6835B] uppercase tracking-wider">Overall</span>
-                        </div>
-                        <SwissSubHeading className="text-[#5C6836]">Attendance</SwissSubHeading>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-5xl font-black text-[#283618] tracking-tighter">89</span>
-                            <span className="text-xl font-bold text-[#5C6836]">%</span>
-                        </div>
-                        <p className="text-xs text-[#5C6836] mt-2 font-medium bg-[#FEFAE0] p-2 rounded-lg inline-block">
-                            You are safely above the 75% threshold.
+            <div className="space-y-6 animate-in fade-in duration-500">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Welcome, {userName}</h1>
+                        <p className="text-slate-500 text-sm mt-1">
+                            Your current active group is <span className="font-bold text-slate-900">{studentGroup}</span>.
                         </p>
-                    </CardContent>
-                    <div className="absolute bottom-0 left-0 w-full h-1.5 bg-[#E9E5D0]">
-                        <div className="h-full bg-[#283618] w-[89%]"></div>
                     </div>
-                </Card>
-
-                {/* Planner / Assignments Card */}
-                <Link href="/dashboard/student/planner" className="h-full">
-                    <Card className="flex flex-col justify-between border-none shadow-md bg-[#5C6836] text-white rounded-[24px] overflow-hidden relative group hover:bg-[#4a542b] transition-colors cursor-pointer h-full">
-                        <CardHeader className="pb-1">
-                            <div className="flex justify-between items-center mb-2">
-                                <div className="p-2 bg-white/20 rounded-xl text-white">
-                                    <BookOpen className="w-5 h-5" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:translate-x-1 transition-transform" />
-                            </div>
-                            <SwissSubHeading className="text-[#E9E5D0]">Course Plan</SwissSubHeading>
-                        </CardHeader>
-                        <CardContent className="pb-6">
-                            <div className="text-xl font-black tracking-tight text-white mb-2">View Roadmap</div>
-                            <p className="text-xs text-[#E9E5D0]/80 font-medium">Click to track your syllabus progression.</p>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Calendar Card */}
-                <Link href="/dashboard/student/calendar" className="h-full col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="flex flex-col justify-between border-none shadow-md bg-white ring-1 ring-[#C9C3A3]/30 rounded-[24px] overflow-hidden relative group hover:shadow-lg transition-all cursor-pointer h-full">
-                        <CardHeader className="pb-1">
-                            <div className="flex justify-between items-center mb-2">
-                                <div className="p-2 bg-[#E9E5D0] rounded-xl text-[#283618]">
-                                    <Calendar className="w-5 h-5" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:translate-x-1 transition-transform" />
-                            </div>
-                            <SwissSubHeading className="text-[#5C6836]">Calendar</SwissSubHeading>
-                        </CardHeader>
-                        <CardContent className="pb-6">
-                            <div className="text-xl font-black tracking-tight text-[#283618] mb-2">Academic Dates</div>
-                            <p className="text-xs text-[#5C6836]/80 font-medium">View holidays and exam schedule.</p>
-                        </CardContent>
-                    </Card>
-                </Link>
-            </div>
-
-            {/* Course Progress Section */}
-            <div className="animate-in slide-in-from-bottom-10 duration-700 delay-200">
-                <div className="flex items-center gap-3 mb-6">
-                    <SwissHeading className="text-2xl text-[#283618]">Subject Progress</SwissHeading>
-                    <div className="h-px flex-1 bg-[#C9C3A3]/30"></div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    {courseProgress.length > 0 ? (
-                        courseProgress.map((course, i) => {
-                            const colorTheme = colors[i % colors.length];
-                            return (
-                                <div key={i} className="bg-white border border-[#C9C3A3]/20 rounded-[20px] p-5 flex items-center gap-5 shadow-sm hover:shadow-md transition-shadow group">
-                                    <div className={`p-4 rounded-2xl ${colorTheme.color} ${colorTheme.text} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
-                                        <Book className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between mb-2 items-end">
-                                            <span className="font-bold text-lg text-[#283618]">{course.subject}</span>
-                                            <span className="text-sm font-bold text-[#A6835B] bg-[#FEFAE0] px-2 py-0.5 rounded-md">{course.progress}%</span>
-                                        </div>
-                                        <div className="h-2.5 w-full bg-[#E9E5D0] rounded-full overflow-hidden">
-                                            <div className={`h-full ${colorTheme.color} rounded-full`} style={{ width: `${course.progress}%` }}></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    ) : (
-                        <div className="col-span-full p-8 text-center border border-dashed border-[#C9C3A3] rounded-2xl bg-[#E9E5D0]/30 text-[#5C6836]">
-                            No subjects to track yet.
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    {/* Next Class Hero Card */}
+                    <Card className="lg:col-span-8 bg-slate-900 text-white border-none overflow-hidden relative shadow-xl">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                            <GraduationCap className="w-48 h-48 text-blue-500" />
                         </div>
-                    )}
+
+                        <CardContent className="p-8 flex flex-col justify-between h-full min-h-[250px] relative z-10">
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-start">
+                                    <Badge className="bg-blue-600 text-white border-0 hover:bg-blue-600 uppercase font-bold text-[10px]">Upcoming Class</Badge>
+                                    <Clock className="w-5 h-5 text-slate-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+                                        {nextClass ? nextClass.subject : "No Classes Scheduled"}
+                                    </h2>
+                                    <p className="text-slate-400 text-lg font-medium leading-relaxed">
+                                        {nextClass ? (nextClass.faculty ? `With Prof. ${nextClass.faculty}` : "Standard Session") : "Check back later for your schedule."}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-8 items-center pt-8 border-t border-white/5 mt-8">
+                                {nextClass && (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                            <div className="text-xs font-bold text-slate-300">
+                                                {nextClass.startTime} — {nextClass.endTime}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="w-4 h-4 text-emerald-500" />
+                                            <div className="text-xs font-bold text-slate-300">
+                                                Location: {nextClass.room || 'TBA'}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Sidebar Metrics */}
+                    <div className="lg:col-span-4 grid grid-cols-1 gap-4">                        {/* Attendance Widget */}
+                        <Card className="border shadow-sm flex flex-col justify-between">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm text-slate-500 font-bold uppercase tracking-wider">My Attendance</CardTitle>
+                                <div className="flex items-baseline gap-1 pt-1">
+                                    <span className="text-4xl font-black text-slate-900 tracking-tight">N/A</span>
+                                    <Badge variant="outline" className="text-slate-400 bg-slate-50 border-slate-200 font-bold text-[10px] ml-2">COMING SOON</Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="pb-6">
+                                <p className="text-xs text-slate-400 mt-2 font-medium">Attendance tracking will be available in a future update.</p>
+                            </CardContent>
+                        </Card>
+
+                        {/* Quick Action Buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button className="h-24 flex flex-col gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 font-bold uppercase tracking-wide text-xs group" asChild>
+                                <Link href="/dashboard/student/planner">
+                                    <BookOpen className="w-5 h-5 mb-1" />
+                                    View Syllabus
+                                </Link>
+                            </Button>
+                            <Button variant="outline" className="h-24 flex flex-col gap-2 rounded-2xl border-slate-200 hover:bg-slate-50 font-bold uppercase tracking-wide text-xs text-slate-700" asChild>
+                                <Link href="/dashboard/student/calendar">
+                                    <Calendar className="w-5 h-5 mb-1 text-slate-400" />
+                                    My Calendar
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Course Progress Section */}
+                <div className="space-y-4 pt-4">
+                    <div className="flex items-center gap-2 px-1">
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">Subject Completion</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
+                        {courseProgress.length > 0 ? (
+                            courseProgress.map((course, i) => (
+                                <Card key={i} className="hover:shadow-md transition-all group border-slate-200">
+                                    <CardContent className="p-6 space-y-4">
+                                        <div className="flex justify-between items-start">
+                                            <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-sm group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                                <LayoutGrid className="w-5 h-5" />
+                                            </div>
+                                            <Badge variant="secondary" className="text-slate-500 font-bold text-[10px]">{course.progress}% DONE</Badge>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h4 className="font-bold text-slate-900 text-lg tracking-tight truncate pr-2">{course.subject}</h4>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Current Syllabus Progress</p>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-blue-600 rounded-full group-hover:bg-blue-500 transition-all" style={{ width: `${course.progress}%` }} />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        ) : (
+                            <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
+                                <p className="text-sm font-medium text-slate-400">Loading your subjects...</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-
         </DashboardLayout>
     );
 }

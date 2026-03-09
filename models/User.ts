@@ -5,19 +5,22 @@ export enum UserRole {
     HOD = 'HOD',
     FACULTY = 'FACULTY',
     STUDENT = 'STUDENT',
-    ADMIN = 'ADMIN' // Super admin (Institute level)
+    ADMIN = 'ADMIN'
 }
 
 export interface IUser extends Document {
-    email: string; // Used as User ID/Username
+    email: string;
     passwordHash: string;
     role: UserRole;
     name: string;
-    department?: string; // Optional (HOD/Faculty specific)
+    department_id?: mongoose.Types.ObjectId;
     mobile?: string;
     facultyType?: 'JUNIOR' | 'SENIOR';
-    facultyGroupId?: string;
-    facultyGroupName?: string; // Cache the name for fast queries/display
+    facultyGroupId?: mongoose.Types.ObjectId;
+    enrollmentNumber?: string;
+    employeeId?: string;
+    mustChangePassword: boolean;
+    isInvitePending: boolean;
     isActive: boolean;
     lastLogin?: Date;
     createdAt: Date;
@@ -25,65 +28,28 @@ export interface IUser extends Document {
 }
 
 const UserSchema: Schema = new Schema({
-    email: {
-        type: String,
-        required: [true, 'Email/User ID is required'],
-        unique: true,
-        trim: true,
-        lowercase: true,
-        index: true
-    },
-    passwordHash: {
-        type: String,
-        required: [true, 'Password is required'],
-        select: false // Never return password by default
-    },
-    role: {
-        type: String,
-        enum: Object.values(UserRole),
-        required: true,
-        default: UserRole.STUDENT
-    },
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    department: {
-        type: String,
-        required: false,
-        trim: true
-    },
-    mobile: {
-        type: String,
-        required: false,
-        trim: true
-    },
-    isActive: {
-        type: Boolean,
-        default: true
-    },
-    lastLogin: {
-        type: Date
-    },
-    facultyType: {
-        type: String,
-        enum: ['JUNIOR', 'SENIOR'],
-        required: false
-    },
-    facultyGroupId: {
-        type: String,
-        required: false
-    },
-    facultyGroupName: {
-        type: String,
-        required: false
-    }
-}, {
-    timestamps: true
-});
+    email: { type: String, required: [true, 'Email is required'], unique: true, trim: true, lowercase: true, index: true },
+    passwordHash: { type: String, required: true, select: false },
+    role: { type: String, enum: Object.values(UserRole), required: true, default: UserRole.STUDENT },
+    name: { type: String, required: true, trim: true },
+    department_id: { type: Schema.Types.ObjectId, ref: 'Department' },
+    mobile: { type: String, trim: true },
+    isActive: { type: Boolean, default: true },
+    lastLogin: { type: Date },
+    facultyType: { type: String, enum: ['JUNIOR', 'SENIOR'] },
+    facultyGroupId: { type: Schema.Types.ObjectId, ref: 'FacultyGroup' },
+    enrollmentNumber: { type: String, trim: true, sparse: true },
+    employeeId: { type: String, trim: true, sparse: true },
+    mustChangePassword: { type: Boolean, default: false },
+    isInvitePending: { type: Boolean, default: false },
+}, { timestamps: true });
 
-// Ensure only one model exists to prevent overwrite errors in dev
+UserSchema.index({ department_id: 1 });
+UserSchema.index({ facultyGroupId: 1 });
+UserSchema.index({ role: 1 });
+UserSchema.index({ isActive: 1 });
+UserSchema.index({ enrollmentNumber: 1 }, { sparse: true, unique: true });
+UserSchema.index({ employeeId: 1 }, { sparse: true, unique: true });
+
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
-
 export default User;

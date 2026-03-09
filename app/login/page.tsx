@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, SwissHeading } from '@/components/ui/SwissUI';
 import { Logo } from '@/components/ui/Logo';
-import { Input } from "@/components/ui/input"
-import { Loader2, KeyRound, Mail } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Loader2, KeyRound, Mail, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -16,14 +17,12 @@ export default function LoginPage() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!email || !password) {
-            toast.error("Missing Credentials", { description: "Please enter both email and password." });
+            toast.error("Required Fields", { description: "Please enter your email and password." });
             return;
         }
 
         setIsLoading(true);
-
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
@@ -37,83 +36,94 @@ export default function LoginPage() {
             }
 
             const data = await response.json();
-            toast.success("Login Successful", { description: "Redirecting to dashboard..." });
-
-            // Redirect based on role
+            toast.success("Welcome back", { description: "You have successfully signed in." });
             router.push(data.redirectUrl);
-
         } catch (error: any) {
-            toast.error("Authentication Failed", { description: error.message });
+            toast.error("Login Error", { description: error.message });
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
-            {/* Background branding element */}
-            <div className="absolute top-8 left-8">
-                <Logo size="lg" />
-            </div>
-
-            <Card className="w-full max-w-md shadow-2xl border-primary/10">
-                <CardHeader className="space-y-1 items-center text-center pb-8 border-b bg-slate-50/50">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                        <KeyRound className="w-8 h-8 text-primary" />
+        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50/50 relative">
+            <div className="w-full max-w-[420px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="relative w-16 h-16 overflow-hidden">
+                        <Logo size="lg" showText={false} className="object-contain" />
                     </div>
-                    <SwissHeading className="text-2xl">Welcome Back</SwissHeading>
-                    <CardDescription>
-                        Enter your credentials to access the secure portal.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-8">
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none" htmlFor="email">
-                                University ID / Email
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="email"
-                                    placeholder="admin@university.edu"
-                                    type="email"
-                                    className="pl-9"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    disabled={isLoading}
-                                />
+                    <div className="space-y-1">
+                        <h1 className="text-2xl font-black tracking-tight text-slate-900">Welcome back</h1>
+                        <p className="text-sm text-slate-500 font-medium">Enter your credentials to access your account</p>
+                    </div>
+                </div>
+
+                <Card className="rounded-[28px] border border-slate-200/60 shadow-xl shadow-slate-200/50 bg-white">
+                    <CardContent className="p-8 pb-10 space-y-6">
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1" htmlFor="email">
+                                    Email Address
+                                </label>
+                                <div className="relative group">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                    <Input
+                                        id="email"
+                                        placeholder="yourname@university.edu"
+                                        type="email"
+                                        className="h-12 pl-12 rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-600/20 font-bold"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        disabled={isLoading}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium leading-none" htmlFor="password">
-                                Password
-                            </label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                disabled={isLoading}
-                            />
-                        </div>
-                        <Button className="w-full mt-6" size="lg" disabled={isLoading}>
-                            {isLoading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...
-                                </>
-                            ) : (
-                                "Sign In"
-                            )}
-                        </Button>
-                    </form>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between ml-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400" htmlFor="password">
+                                        Password
+                                    </label>
+                                    <button type="button" className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors">
+                                        Forgot?
+                                    </button>
+                                </div>
+                                <div className="relative group">
+                                    <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        placeholder="••••••••"
+                                        className="h-12 pl-12 rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-600/20 font-bold"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                            </div>
+                            <Button className="w-full h-12 mt-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[11px] group relative overflow-hidden shadow-lg shadow-blue-500/20" disabled={isLoading}>
+                                {isLoading ? (
+                                    <div className="flex items-center gap-3">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Signing in...</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        Sign In <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                )}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
 
-                    <div className="mt-6 text-center text-xs text-muted-foreground">
-                        Forgot password? Contact your Department Head.
-                    </div>
-                </CardContent>
-            </Card>
+                <div className="text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        © 2026 University Planning System
+                    </p>
+                </div>
+            </div>
         </div>
     );
 }
+
+import Link from 'next/link';

@@ -1,323 +1,599 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading } from '@/components/ui/SwissUI';
-import { ArrowRight, LayoutDashboard, CalendarRange, Users, BookOpen, Bell, GraduationCap, TrendingUp, AlertCircle, CheckCircle2, FileText } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    ArrowRight, Users, BookOpen, GraduationCap, TrendingUp,
+    ChevronRight, Activity, Layers, Calendar, Target,
+    CheckCircle2, XCircle, Clock, Flame, BarChart3, AlertTriangle, TrendingDown
+} from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import Subject from '@/models/Subject';
 import FacultyGroup from '@/models/FacultyGroup';
-import { Network } from 'lucide-react';
+import Plan from '@/models/Plan';
+import Department from '@/models/Department';
+import { cn } from '@/lib/utils';
+import { AnalyticsChart } from '@/components/dashboard/AnalyticsChart';
 
-// Force dynamic rendering for real-time data
 export const dynamic = 'force-dynamic';
+
+const MISSED_REASON_LABELS: Record<string, string> = {
+    ON_LEAVE: 'On Leave',
+    TOPIC_TOOK_LONGER: 'Topic Took Longer',
+    HOLIDAY_CLASH: 'Holiday Clash',
+    TECHNICAL_ISSUE: 'Technical Issue',
+    LOW_ATTENDANCE: 'Low Attendance',
+    OTHER: 'Other',
+};
 
 async function getDashboardStats() {
     await dbConnect();
-    const facultyCount = await User.countDocuments({ role: 'FACULTY' });
-    const studentCount = await User.countDocuments({ role: 'STUDENT' });
-    const subjectCount = await Subject.countDocuments();
+    await import('@/models/Subject');
+    await import('@/models/User');
 
-    // Fetch actual faculty members for the list
-    // lean() returns plain JS objects, easier to serialize
+    const [facultyCount, studentCount, subjectCount, facultyGroupCount] = await Promise.all([
+        User.countDocuments({ role: 'FACULTY', isActive: true }),
+        User.countDocuments({ role: 'STUDENT', isActive: true }),
+        Subject.countDocuments(),
+        FacultyGroup.countDocuments(),
+    ]);
+
     const recentFaculty = await User.find({ role: 'FACULTY' })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select('name email facultyType')
+        .sort({ createdAt: -1 }).limit(5)
+        .select('name email createdAt').lean();
+
+    // Plan aggregation with topic stats
+    const planAgg = await Plan.aggregate([
+        { $match: { status: 'ACTIVE' } },
+        {
+            $project: {
+                faculty_group_id: 1, subject_id: 1,
+                total: { $size: { $ifNull: ['$syllabus_topics', []] } },
+                done: {
+                    $size: {
+                        $filter: {
+                            input: { $ifNull: ['$syllabus_topics', []] }, as: 't',
+                            cond: { $eq: ['$$t.completion_status', 'DONE'] }
+                        }
+                    }
+                },
+                missed: {
+                    $size: {
+                        $filter: {
+                            input: { $ifNull: ['$syllabus_topics', []] }, as: 't',
+                            cond: { $eq: ['$$t.completion_status', 'MISSED'] }
+                        }
+                    }
+                },
+            }
+        },
+        {
+            $addFields: {
+                progress: {
+                    $cond: [{ $gt: ['$total', 0] }, { $multiply: [{ $divide: ['$done', '$total'] }, 100] }, 0]
+                }
+            }
+        }
+    ]);
+
+    const avgProgress = planAgg.length > 0
+        ? Math.round(planAgg.reduce((s, p) => s + p.progress, 0) / planAgg.length) : 0;
+    const totalDone = planAgg.reduce((s, p) => s + p.done, 0);
+    const totalMissed = planAgg.reduce((s, p) => s + p.missed, 0);
+    const totalPending = planAgg.reduce((s, p) => s + (p.total - p.done - p.missed), 0);    // Groups with proper year/semester fields
+    const groups = await FacultyGroup.find()
+        .populate('faculty_ids', 'name')
+        .populate('department_id', 'name')
+        .select('name year semester section department_id faculty_ids')
         .lean();
 
-    const facultyGroupCount = await FacultyGroup.countDocuments();
+    // Year breakdown using schema field (not name parsing)
+    const yearBuckets: Record<number, { progresses: number[], groupCount: number }> = {
+        1: { progresses: [], groupCount: 0 },
+        2: { progresses: [], groupCount: 0 },
+        3: { progresses: [], groupCount: 0 },
+        4: { progresses: [], groupCount: 0 },
+    };
 
-    return { facultyCount, studentCount, subjectCount, recentFaculty, facultyGroupCount };
+    groups.forEach((g: any) => {
+        const yr = g.year || 1;
+        if (yearBuckets[yr]) yearBuckets[yr].groupCount++;
+    });
+
+    planAgg.forEach((plan: any) => {
+        const group = groups.find(g => g._id.toString() === plan.faculty_group_id?.toString()) as any;
+        if (group) {
+            const yr = group.year || 1;
+            if (yearBuckets[yr]) yearBuckets[yr].progresses.push(plan.progress);
+        }
+    });
+
+    const yearData = Object.entries(yearBuckets).map(([yr, data]) => ({
+        name: `Year ${yr}`,
+        year: parseInt(yr),
+        progress: data.progresses.length > 0
+            ? Math.round(data.progresses.reduce((s, p) => s + p, 0) / data.progresses.length) : 0,
+        groups: data.groupCount,
+        active: data.progresses.length > 0,
+    }));
+
+    // Semester progress chart (semi-arch view)
+    const semBuckets: Record<number, number[]> = {};
+    for (let i = 1; i <= 8; i++) semBuckets[i] = [];
+    planAgg.forEach((plan: any) => {
+        const group = groups.find(g => g._id.toString() === plan.faculty_group_id?.toString()) as any;
+        if (group) {
+            const sem = group.semester || 1;
+            if (semBuckets[sem]) semBuckets[sem].push(plan.progress);
+        }
+    });
+    const semesterData = Object.entries(semBuckets).map(([sem, progs]) => ({
+        name: `S${sem}`,
+        semester: parseInt(sem),
+        progress: progs.length > 0 ? Math.round(progs.reduce((s, p) => s + p, 0) / progs.length) : 0,
+        active: progs.length > 0,
+    })).filter(s => s.active);
+
+    // Topic status for donut
+    const topicStatusData = [
+        { name: 'Completed', value: totalDone, color: '#10b981' },
+        { name: 'Missed', value: totalMissed, color: '#ef4444' },
+        { name: 'Pending', value: totalPending, color: '#e2e8f0' },
+    ];
+
+    // Per-class progress
+    const classProgress = groups.slice(0, 10).map((g: any) => {
+        const plan = planAgg.find(p => p.faculty_group_id?.toString() === g._id.toString());
+        return {
+            name: g.name,
+            year: g.year || 1,
+            semester: g.semester || 1,
+            section: g.section || '',
+            department: (g.department_id as any)?.name || 'N/A',
+            progress: Math.round(plan?.progress || 0),
+        };
+    }).sort((a, b) => b.progress - a.progress);    // Recent active plans
+    const recentPlans = await Plan.find({ status: 'ACTIVE' })
+        .populate('faculty_group_id', 'name year semester')
+        .populate('subject_id', 'name')
+        .sort({ updatedAt: -1 }).limit(5).lean();
+
+    // Faculty underperformance: aggregate missed topics per faculty
+    const UNDERPERFORM_THRESHOLD = 0.30; // 30% miss rate
+    const MIN_MARKED = 5; // minimum topics marked before flagging
+
+    const facultyPerfAgg = await Plan.aggregate([
+        { $match: { status: 'ACTIVE' } },
+        { $unwind: '$syllabus_topics' },
+        { $match: { 'syllabus_topics.completion_status': { $in: ['DONE', 'MISSED'] } } },
+        {
+            $group: {
+                _id: '$faculty_ids',
+                done: { $sum: { $cond: [{ $eq: ['$syllabus_topics.completion_status', 'DONE'] }, 1, 0] } },
+                missed: { $sum: { $cond: [{ $eq: ['$syllabus_topics.completion_status', 'MISSED'] }, 1, 0] } },
+                missedReasons: {
+                    $push: {
+                        $cond: [
+                            { $eq: ['$syllabus_topics.completion_status', 'MISSED'] },
+                            { reason: '$syllabus_topics.missed_reason', custom: '$syllabus_topics.missed_reason_custom' },
+                            '$$REMOVE'
+                        ]
+                    }
+                }
+            }
+        }
+    ]);
+
+    // Per-faculty miss stats (keyed by faculty ObjectId)
+    // Plans have faculty_ids as an array; unwind above uses that
+    // We need to join with User. We'll do it in JS for simplicity.
+    const facultyIds = await User.find({ role: 'FACULTY', isActive: true }).select('_id name email').lean();
+
+    // Build per-faculty stats from plan-level aggregation
+    // Alternative: direct per-topic aggregation keyed on assigned_faculty_id
+    const perFacultyStats = await Plan.aggregate([
+        { $match: { status: 'ACTIVE' } },
+        { $unwind: '$syllabus_topics' },
+        { $match: { 'syllabus_topics.completion_status': { $in: ['DONE', 'MISSED'] } } },
+        {
+            $group: {
+                _id: '$syllabus_topics.assigned_faculty_id',
+                done: { $sum: { $cond: [{ $eq: ['$syllabus_topics.completion_status', 'DONE'] }, 1, 0] } },
+                missed: { $sum: { $cond: [{ $eq: ['$syllabus_topics.completion_status', 'MISSED'] }, 1, 0] } },
+                topMissedReason: { $first: '$syllabus_topics.missed_reason' },
+            }
+        },
+        { $match: { _id: { $ne: null } } }
+    ]);
+
+    // Build underperforming faculty list
+    const underperformingFaculty: any[] = [];
+    perFacultyStats.forEach((stat: any) => {
+        const total = stat.done + stat.missed;
+        if (total < MIN_MARKED) return;
+        const missRate = stat.missed / total;
+        if (missRate <= UNDERPERFORM_THRESHOLD) return;
+        const faculty = facultyIds.find((f: any) => f._id.toString() === stat._id?.toString());
+        if (!faculty) return;
+        underperformingFaculty.push({
+            _id: faculty._id,
+            name: (faculty as any).name,
+            email: (faculty as any).email,
+            done: stat.done,
+            missed: stat.missed,
+            missRate: Math.round(missRate * 100),
+            topMissedReason: stat.topMissedReason,
+        });
+    });
+    underperformingFaculty.sort((a, b) => b.missRate - a.missRate);
+
+    return {
+        facultyCount, studentCount, subjectCount, facultyGroupCount,
+        avgProgress, totalDone, totalMissed, totalPending,
+        recentFaculty: JSON.parse(JSON.stringify(recentFaculty)),
+        yearData, semesterData, topicStatusData, classProgress,
+        recentPlans: JSON.parse(JSON.stringify(recentPlans)),
+        activePlanCount: planAgg.length,
+        underperformingFaculty: JSON.parse(JSON.stringify(underperformingFaculty)),
+    };
 }
 
-export default async function HODDashboard() {
-    // @ts-ignore - lean() typing issues sometimes
-    const { facultyCount, studentCount, subjectCount, recentFaculty, facultyGroupCount } = await getDashboardStats();
+export default async function HODDashboard() {    const {
+        facultyCount, studentCount, subjectCount, facultyGroupCount,
+        avgProgress, totalDone, totalMissed, totalPending,
+        recentFaculty, yearData, semesterData, topicStatusData, classProgress,
+        recentPlans, activePlanCount, underperformingFaculty
+    } = await getDashboardStats();
 
     return (
         <DashboardLayout role="HOD">
-            {/* Header Section */}
-            <div className="mb-10 max-w-4xl animate-in slide-in-from-bottom-5 duration-500">
-                <div className="flex items-center gap-3 mb-4">
-                    <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider">
-                        Department Head
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-bold uppercase tracking-wider">
-                        {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </span>
-                </div>
-                <SwissHeading className="text-4xl md:text-5xl mb-4 text-foreground tracking-tight">
-                    Computer Science <span className="text-muted-foreground font-serif italic">Overview</span>
-                </SwissHeading>
-                <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                    Real-time academic surveillance. Faculty load balancing, curriculum coverage, and schedule integrity are currently <span className="text-foreground font-bold underline decoration-primary decoration-2 underline-offset-4">Optimal</span>.
-                </p>
-            </div>
+            <div className="space-y-6 animate-in fade-in duration-500">
 
-            {/* High Contrast Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
-
-                {/* Card 1: Faculty (High Contrast Dark) */}
-                <Link href="/admin/users" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border border-border shadow-xl bg-primary text-primary-foreground rounded-[24px] overflow-hidden relative hover:scale-[1.02] transition-transform duration-300">
-                        <div className="absolute top-0 right-0 p-8 opacity-10">
-                            <Users className="w-32 h-32 -mr-10 -mt-10" />
-                        </div>
-                        <CardHeader className="pb-2 relative z-10">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-background/20 rounded-2xl backdrop-blur-sm">
-                                    <Users className="w-6 h-6 text-primary-foreground" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-primary-foreground/50 group-hover:text-primary-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-4xl font-black">{facultyCount}</div>
-                                <CardTitle className="text-lg text-primary-foreground/80 font-medium">Active Faculty</CardTitle>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="relative z-10">
-                            <div className="flex items-center gap-2 mt-4 text-xs font-bold uppercase tracking-wider text-primary-foreground opacity-80">
-                                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                                Online Now
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-
-
-                {/* Faculty Groups Card */}
-                <Link href="/admin/faculty" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border border-border shadow-sm bg-card hover:bg-muted hover:border-primary/50 rounded-[24px] overflow-hidden transition-all duration-300">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-secondary/50 rounded-2xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                                    <Network className="w-6 h-6" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-4xl font-black text-foreground">{facultyGroupCount}</div>
-                                <CardTitle className="text-lg text-muted-foreground">Faculty Groups</CardTitle>
-                            </div>
-                        </CardHeader>
-                    </Card>
-                </Link>
-
-                {/* Card 3: Curriculum (Light but Bold) */}
-                <Link href="/admin/subjects" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border border-border shadow-sm bg-card hover:bg-muted hover:border-primary/50 rounded-[24px] overflow-hidden transition-all duration-300">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-secondary rounded-2xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                                    <BookOpen className="w-6 h-6" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-4xl font-black text-foreground">{subjectCount}</div>
-                                <CardTitle className="text-lg text-muted-foreground">Subjects</CardTitle>
-                            </div>
-                        </CardHeader>
-                    </Card>
-                </Link>
-
-                {/* Card 4: Planner Read Only */}
-                <Link href="/admin/planner" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border border-border shadow-sm bg-card rounded-[24px] overflow-hidden relative hover:shadow-lg transition-all duration-300">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-muted rounded-2xl transition-colors duration-300">
-                                    <FileText className="w-6 h-6 text-foreground" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xl font-black text-foreground mt-2">Academic Planner</div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                                        VIEW ONLY
-                                    </span>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground font-medium leading-tight">
-                                Inspect generated schedules and curriculum flow.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Card 5: Academic Calendar Link */}
-                <Link href="/dashboard/hod/calendar" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border border-border shadow-sm bg-card rounded-[24px] overflow-hidden relative hover:shadow-lg transition-all duration-300">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-muted rounded-2xl group-hover:bg-primary transition-colors duration-300 group-hover:text-primary-foreground">
-                                    <CalendarRange className="w-6 h-6" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xl font-black text-foreground mt-2">Academic Calendar</div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                                        VIEW ONLY
-                                    </span>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground font-medium leading-tight">
-                                View holidays, exams, and important term dates.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Card 6: Timetable Manager */}
-                <Link href="/admin/timetable" className="group col-span-1 md:col-span-2 lg:col-span-1">
-                    <Card className="h-full border-2 border-dashed border-border shadow-sm bg-muted/20 hover:bg-muted/50 rounded-[24px] overflow-hidden relative hover:border-primary/50 transition-all duration-300">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-3 bg-background rounded-2xl shadow-sm transition-transform duration-300">
-                                    <LayoutDashboard className="w-6 h-6 text-foreground" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xl font-black text-foreground mt-2">Master Timetable</div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                                        EDITABLE
-                                    </span>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground font-medium leading-tight">
-                                Define class slots and weekly schedules for faculty groups.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-            </div>
-
-            {/* List Section - Faculty Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-10 duration-700 delay-200 mb-12">
-                <div className="lg:col-span-2">
-                    <div className="flex items-center justify-between mb-6 pb-4 border-b">
-                        <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                            <Users className="w-5 h-5 text-muted-foreground" />
-                            Faculty Roster
-                        </h2>
-                        <Button variant="ghost" className="text-muted-foreground hover:text-foreground">View Full Directory</Button>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-black text-foreground tracking-tight">Department Overview</h1>                        <p className="text-muted-foreground text-sm mt-1">
+                            {facultyCount} faculty · {studentCount} students · {facultyGroupCount} groups · {activePlanCount} active plans
+                        </p>
                     </div>
-
-                    <Card className="border border-border shadow-sm overflow-hidden rounded-[24px] bg-card">
-                        <div className="p-0 overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-muted/50 border-b border-border">
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Faculty Member</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Status</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Projected Load</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {recentFaculty.length > 0 ? (
-                                        recentFaculty.map((fac: any, i: number) => (
-                                            <tr key={fac._id} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors group">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shadow-sm">
-                                                            {fac.name.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <Link href={`/dashboard/hod/faculty/${fac._id}`}>
-                                                                <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors hover:underline">{fac.name}</div>
-                                                            </Link>
-                                                            <div className="text-xs text-muted-foreground font-medium">{fac.facultyType === 'SENIOR' ? 'Senior Faculty' : 'Assistant Professor'}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium text-muted-foreground">{fac.email}</div>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse"></span>
-                                                        Active
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex flex-col items-end gap-1">
-                                                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-primary rounded-full transition-all duration-1000"
-                                                                style={{ width: `${Math.floor(Math.random() * (90 - 40) + 40)}%` }}
-                                                            ></div>
-                                                        </div>
-                                                        <span className="text-xs font-bold text-foreground">{Math.floor(Math.random() * (18 - 8) + 8)} Hours</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
-                                                No faculty found. <Link href="/admin/users" className="underline text-primary">Add users</Link>.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
+                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200 text-xs font-black px-4 py-2">
+                        <Activity className="w-3 h-3 mr-2" /> Live Academic Session
+                    </Badge>
                 </div>
 
-                {/* Notifications Panel */}
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight mb-6 pb-4 border-b text-foreground flex items-center gap-2">
-                        <Bell className="w-5 h-5 text-muted-foreground" />
-                        Latest Updates
-                    </h2>
-                    <Card className="border border-border shadow-md rounded-[24px] bg-card text-foreground h-auto relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -mr-20 -mt-20"></div>
+                {/* KPI Row */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KPICard label="Faculty Members" value={facultyCount} icon={Users} href="/admin/users" color="blue" delta="+2 this month" />
+                    <KPICard label="Subjects" value={subjectCount} icon={BookOpen} href="/admin/subjects" color="emerald" delta="In curriculum" />
+                    <KPICard label="Faculty Groups" value={facultyGroupCount} icon={Layers} href="/admin/faculty" color="violet" delta="Across all years" />
+                    <KPICard label="Avg Progress" value={`${avgProgress}%`} icon={Target} href="/admin/planner" color="amber" delta={`${totalDone} topics done`} />
+                </div>
 
-                        <CardContent className="pt-8 space-y-8 relative z-10">
+                {/* Charts Row 1 */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                            <div className="flex gap-4 items-start group">
-                                <div className="bg-muted p-3 rounded-2xl text-foreground shrink-0 border border-border">
-                                    <Bell className="w-5 h-5" />
-                                </div>
+                    {/* Year-wise Progress Bar Chart */}
+                    <Card className="lg:col-span-2 rounded-3xl border-border/60 shadow-sm hover:shadow-lg transition-all">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="flex justify-between items-start">
-                                        <p className="text-sm font-bold text-foreground">New Term Started</p>
-                                        <span className="text-[10px] text-primary font-mono uppercase tracking-widest bg-primary/10 px-1 rounded">NOW</span>
+                                    <CardTitle className="text-lg font-black uppercase tracking-tight">Year-wise Progress</CardTitle>
+                                    <CardDescription>Average syllabus completion per academic year</CardDescription>
+                                </div>
+                                <BarChart3 className="w-5 h-5 text-muted-foreground/40" />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <AnalyticsChart
+                                data={yearData}
+                                xKey="name"
+                                yKey="progress"
+                                type="bar"
+                                colors={['#2563eb', '#8b5cf6', '#10b981', '#f59e0b']}
+                                height={220}
+                                unit="%"
+                            />
+                            <div className="grid grid-cols-4 gap-2 mt-4">
+                                {yearData.map(y => (
+                                    <div key={y.year} className={cn(
+                                        "text-center p-2 rounded-xl border text-xs transition-all",
+                                        y.active ? "bg-primary/5 border-primary/20 text-primary" : "bg-muted/30 border-border/40 text-muted-foreground/50"
+                                    )}>
+                                        <div className="font-black text-lg">{y.active ? `${y.progress}%` : '—'}</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest">Year {y.year}</div>
+                                        <div className="text-[9px] opacity-60">{y.groups} group{y.groups !== 1 ? 's' : ''}</div>
                                     </div>
-                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed font-medium">Fall 2026 semester initialization complete. 0 errors.</p>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Topic Status Donut */}
+                    <Card className="rounded-3xl border-border/60 shadow-sm hover:shadow-lg transition-all">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Topic Status</CardTitle>
+                            <CardDescription>Distribution across all active plans</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <AnalyticsChart
+                                data={topicStatusData}
+                                type="donut"
+                                nameKey="name"
+                                valueKey="value"
+                                height={180}
+                                showLegend={true}
+                            />
+                            <div className="space-y-2 mt-4">
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                    <span className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Done</span>
+                                    <span className="text-emerald-600 font-black">{totalDone}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                    <span className="flex items-center gap-2"><XCircle className="w-3.5 h-3.5 text-rose-500" /> Missed</span>
+                                    <span className="text-rose-600 font-black">{totalMissed}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                    <span className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-slate-400" /> Pending</span>
+                                    <span className="text-slate-500 font-black">{totalPending}</span>
                                 </div>
                             </div>
-
-                            <div className="flex gap-4 items-start group">
-                                <div className="bg-muted p-3 rounded-2xl text-foreground shrink-0 border border-border">
-                                    <CheckCircle2 className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-foreground">Database Optimization</p>
-                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed font-medium">Weekly maintenance finished. Query time reduced by 12%.</p>
-                                    <p className="text-[10px] text-muted-foreground/60 mt-2 font-mono uppercase tracking-widest">Yesterday</p>
-                                </div>
-                            </div>
-
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Charts Row 2 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    {/* Semester-wise area chart */}
+                    <Card className="rounded-3xl border-border/60 shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Semester Trend</CardTitle>
+                            <CardDescription>Progress across active semesters</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {semesterData.length > 0 ? (
+                                <AnalyticsChart
+                                    data={semesterData}
+                                    xKey="name"
+                                    yKey="progress"
+                                    type="area"
+                                    color="#8b5cf6"
+                                    height={200}
+                                    unit="%"
+                                />
+                            ) : (
+                                <div className="flex items-center justify-center h-48 text-muted-foreground text-sm font-bold">
+                                    No semester data — assign groups to semesters first.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Class-wise Progress */}
+                    <Card className="rounded-3xl border-border/60 shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>                            <CardTitle className="text-lg font-black uppercase tracking-tight">Group Progress</CardTitle>
+                                <CardDescription>Per-class completion ranking</CardDescription>
+                            </div>
+                            <Link href="/admin/faculty">
+                                <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase tracking-widest text-primary">View All</Button>
+                            </Link>
+                        </CardHeader>
+                        <CardContent>
+                            {classProgress.length > 0 ? (
+                                <div className="space-y-3">
+                                    {classProgress.slice(0, 6).map((cp: any, idx: number) => (
+                                        <div key={idx} className="space-y-1">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <span className="text-xs font-black text-foreground">{cp.name}</span>
+                                                    <span className="ml-2 text-[10px] font-bold text-muted-foreground">
+                                                        Y{cp.year} · S{cp.semester}{cp.section ? ` · ${cp.section}` : ''}
+                                                    </span>
+                                                </div>
+                                                <span className={cn("text-[10px] font-black", cp.progress >= 70 ? "text-emerald-600" : cp.progress >= 40 ? "text-amber-600" : "text-rose-500")}>
+                                                    {cp.progress}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                                <div
+                                                    className={cn("h-full rounded-full transition-all duration-700", cp.progress >= 70 ? "bg-emerald-500" : cp.progress >= 40 ? "bg-amber-500" : "bg-rose-400")}
+                                                    style={{ width: `${cp.progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-8 font-medium italic">
+                                    No active plans found. Generate plans via the Academic Planner.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Bottom Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    {/* Recent Faculty */}
+                    <Card className="rounded-3xl border-border/60 shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base font-black uppercase tracking-tight opacity-70">Recent Faculty</CardTitle>
+                            <Link href="/admin/users"><Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-primary">All</Button></Link>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {recentFaculty.map((fac: any) => (
+                                <Link key={fac._id} href={`/dashboard/hod/faculty/${fac._id}`}
+                                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 transition-all group">
+                                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-sm">
+                                        {fac.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-foreground truncate">{fac.name}</p>
+                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">{fac.email}</p>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-all" />
+                                </Link>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* Active Plans Feed */}
+                    <Card className="rounded-3xl border-border/60 shadow-sm lg:col-span-2">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base font-black uppercase tracking-tight opacity-70">Active Plans</CardTitle>
+                            <Link href="/admin/planner"><Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-primary">Planner</Button></Link>
+                        </CardHeader>
+                        <CardContent>
+                            {recentPlans.length > 0 ? (
+                                <div className="space-y-3">
+                                    {recentPlans.map((plan: any, idx: number) => {
+                                        const total = plan.syllabus_topics?.length || 0;
+                                        const done = plan.syllabus_topics?.filter((t: any) => t.completion_status === 'DONE').length || 0;
+                                        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                                        return (
+                                            <div key={idx} className="flex items-center gap-4 p-3 rounded-2xl bg-muted/30 border border-border/40">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-black text-foreground truncate">{plan.subject_id?.name || 'Untitled'}</span>
+                                                        <Badge className="text-[9px] font-black bg-primary/10 text-primary border-0">
+                                                            Y{plan.faculty_group_id?.year} · S{plan.faculty_group_id?.semester}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-[10px] text-muted-foreground font-bold mt-0.5">{plan.faculty_group_id?.name}</p>
+                                                    <div className="w-full h-1 bg-muted rounded-full mt-1.5">
+                                                        <div className={cn("h-full rounded-full", pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-rose-400")}
+                                                            style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                </div>
+                                                <span className="text-sm font-black text-primary shrink-0">{pct}%</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 text-muted-foreground">
+                                    <Flame className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                                    <p className="text-sm font-bold">No active plans yet.</p>
+                                    <p className="text-xs mt-1">Use the Academic Planner to generate AI-powered schedules.</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>                {/* Faculty Underperformance Alert */}
+                {underperformingFaculty.length > 0 && (
+                    <Card className="rounded-3xl border-rose-200 bg-rose-50/30 shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center">
+                                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base font-black uppercase tracking-tight text-rose-700">
+                                        Faculty Underperformance Alert
+                                    </CardTitle>
+                                    <CardDescription className="text-rose-500 text-xs font-bold mt-0.5">
+                                        {underperformingFaculty.length} faculty member{underperformingFaculty.length !== 1 ? 's' : ''} with &gt;30% miss rate (min. 5 marked topics)
+                                    </CardDescription>
+                                </div>
+                            </div>
+                            <Link href="/admin/users">
+                                <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-rose-600 hover:bg-rose-100">View All</Button>
+                            </Link>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                            <div className="space-y-3">
+                                {underperformingFaculty.map((fac: any) => (
+                                    <Link key={fac._id} href={`/dashboard/hod/faculty/${fac._id}`}>
+                                        <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-rose-100 hover:border-rose-300 hover:shadow-md transition-all group">
+                                            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-black text-sm shrink-0">
+                                                {fac.name.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <p className="text-sm font-black text-slate-900 truncate">{fac.name}</p>
+                                                    <Badge className="bg-rose-100 text-rose-700 border-rose-200 text-[9px] font-black px-2 py-0.5 flex items-center gap-1">
+                                                        <TrendingDown className="w-3 h-3" />{fac.missRate}% missed
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <span className="text-[10px] text-slate-500 font-bold">{fac.done} done · {fac.missed} missed</span>
+                                                    {fac.topMissedReason && (
+                                                        <span className="text-[10px] text-rose-500 font-bold">
+                                                            Top reason: {MISSED_REASON_LABELS[fac.topMissedReason] || fac.topMissedReason}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="w-full h-1.5 bg-rose-100 rounded-full mt-2 overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-rose-500 rounded-full transition-all duration-700"
+                                                        style={{ width: `${fac.missRate}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-rose-300 group-hover:translate-x-0.5 transition-all shrink-0" />
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Quick Links */}
+                <Card className="bg-secondary text-secondary-foreground border-none shadow-xl rounded-3xl">
+                    <CardHeader>
+                        <CardTitle className="text-secondary-foreground font-black uppercase tracking-tight">Quick Actions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Academic Planner', href: '/admin/planner', desc: 'AI-powered scheduling' },
+                            { label: 'Timetable Editor', href: '/admin/timetable', desc: 'Weekly slot allocation' },
+                            { label: 'Syllabus Registry', href: '/admin/subjects', desc: 'Manage curricula' },
+                            { label: 'User Management', href: '/admin/users', desc: 'Faculty & students' },
+                        ].map(item => (
+                            <Link key={item.href} href={item.href}
+                                className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group border border-white/5 hover:border-white/20">
+                                <div>
+                                    <p className="text-sm font-black uppercase tracking-tight">{item.label}</p>
+                                    <p className="text-[10px] text-white/50 font-bold mt-0.5">{item.desc}</p>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />
+                            </Link>
+                        ))}
+                    </CardContent>
+                </Card>
             </div>
         </DashboardLayout>
+    );
+}
+
+function KPICard({ label, value, icon: Icon, href, color, delta }: any) {
+    const colors: any = {
+        blue: { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: 'group-hover:bg-blue-600', border: 'border-blue-200/60' },
+        emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', icon: 'group-hover:bg-emerald-600', border: 'border-emerald-200/60' },
+        violet: { bg: 'bg-violet-500/10', text: 'text-violet-600', icon: 'group-hover:bg-violet-600', border: 'border-violet-200/60' },
+        amber: { bg: 'bg-amber-500/10', text: 'text-amber-600', icon: 'group-hover:bg-amber-600', border: 'border-amber-200/60' },
+    };
+    const c = colors[color] || colors.blue;
+
+    return (
+        <Link href={href} className="block transition-transform hover:-translate-y-1">
+            <Card className={cn("hover:shadow-xl transition-all duration-300 border group rounded-2xl overflow-hidden", c.border)}>
+                <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
+                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300", c.bg, c.icon, "group-hover:text-white")}>
+                            <Icon className={cn("w-4 h-4", c.text, "group-hover:text-white transition-colors")} />
+                        </div>
+                    </div>
+                    <p className="text-3xl font-black text-foreground tracking-tight">{value}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold mt-1 opacity-60">{delta}</p>
+                </CardContent>
+            </Card>
+        </Link>
     );
 }

@@ -11,9 +11,15 @@ export async function GET(req: NextRequest) {
         const query: any = { isActive: true };
         if (role) {
             query.role = role.toUpperCase();
-        }
+        }        const rawUsers = await User.find(query)
+            .populate('department_id', 'name')
+            .select('name email role department_id enrollmentNumber employeeId')
+            .lean();
 
-        const users = await User.find(query).select('name email role department').lean();
+        const users = rawUsers.map((u: any) => ({
+            ...u,
+            department: u.department_id ? u.department_id.name : undefined
+        }));
 
         return NextResponse.json({ success: true, users });
     } catch (error: any) {

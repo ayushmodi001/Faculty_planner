@@ -1,30 +1,34 @@
 import React from 'react';
 import CreateFacultyGroupForm from '@/components/CreateFacultyGroupForm';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Button, Badge, SwissHeading } from '@/components/ui/SwissUI';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 
 export default function NewFacultyGroupPage() {
     return (
-        <DashboardLayout role="HOD">
-            <div className="max-w-3xl mx-auto mb-8 animate-in slide-in-from-bottom-5 duration-500">
-                <Link href="/admin/faculty">
-                    <Button variant="ghost" className="pl-0 gap-2 mb-4 hover:bg-transparent hover:text-primary">
-                        <ArrowLeft className="w-4 h-4" /> Back to Faculty List
-                    </Button>
-                </Link>
+        <DashboardLayout role="Admin">
+            <div className="space-y-10 animate-in fade-in duration-700">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Badge variant="orange" className="h-6">Configuration</Badge>
+                            <Badge variant="navy" className="h-6">New Group</Badge>
+                        </div>
+                        <SwissHeading className="text-4xl md:text-5xl font-black text-[#0A1128] tracking-tight">Register Faculty Group</SwissHeading>
+                        <p className="text-slate-500 font-medium mt-1">Create a new faculty group and assign subjects and faculty members.</p>
+                    </div>
+                    <Link href="/admin/faculty">
+                        <Button variant="ghost" className="h-12 px-6 rounded-xl border border-slate-100 hover:bg-white text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#0A1128]">
+                            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Faculty Groups
+                        </Button>
+                    </Link>
+                </div>
 
-                <SwissSubHeading className="text-primary mb-1">Configuration</SwissSubHeading>
-                <SwissHeading>Create New Group</SwissHeading>
-                <p className="text-muted-foreground mt-2 text-sm">
-                    Define a new cohort and assign subject responsibilities.
-                </p>
-            </div>
-
-            <div className="max-w-3xl mx-auto animate-in slide-in-from-bottom-10 duration-700 delay-100">
-                <CreateFacultyGroupForm />
+                <div className="max-w-4xl mx-auto">
+                    <CreateFacultyGroupForm />
+                </div>
             </div>
         </DashboardLayout>
     );

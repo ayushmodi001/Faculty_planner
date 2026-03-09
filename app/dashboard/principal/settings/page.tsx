@@ -11,9 +11,9 @@ export default async function PrincipalSettingsPage() {
             <div className="max-w-4xl mx-auto mb-8 flex flex-col justify-between border-b border-border pb-6 gap-4">
                 <div>
                     <SwissSubHeading className="mb-2 text-primary">Administration Portal</SwissSubHeading>
-                    <SwissHeading>College Settings</SwissHeading>
-                    <p className="text-muted-foreground mt-2 max-w-2xl">
-                        Define college hours and timetable slot duration defaults.
+                    <SwissHeading>Global Configuration</SwissHeading>
+                    <p className="text-muted-foreground mt-2 max-w-2xl font-medium">
+                        Manage institutional identity, academic scheduling cycles, and administrative security signatures from a centralized control plane.
                     </p>
                 </div>
             </div>

@@ -1,241 +1,486 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Button, SwissHeading, SwissSubHeading, Badge } from '@/components/ui/SwissUI';
-import { ArrowRight, BarChart3, GraduationCap, Users2, TrendingUp, CalendarRange, Building2, MapPin, CheckCircle2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import Subject from '@/models/Subject';
+import Plan from '@/models/Plan';
+import FacultyGroup from '@/models/FacultyGroup';
+import Department from '@/models/Department';
+import { cn } from '@/lib/utils';
+import DepartmentManager from '@/components/admin/DepartmentManager';
+import { AnalyticsChart } from '@/components/dashboard/AnalyticsChart';
+import {
+    ArrowRight, GraduationCap, Users, TrendingUp, Building2,
+    CheckCircle2, ChevronRight, Layers, Activity, BarChart3,
+    XCircle, Clock, Target, Network, AlertTriangle
+} from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 async function getPrincipalStats() {
     await dbConnect();
-    const facultyCount = await User.countDocuments({ role: 'FACULTY' });
-    const studentCount = await User.countDocuments({ role: 'STUDENT' });
-    const hodCount = await User.countDocuments({ role: 'HOD' });
-    const subjectCount = await Subject.countDocuments();
-    const totalUsers = facultyCount + studentCount + hodCount;
+    await import('@/models/Subject');
+    await import('@/models/User');
 
-    return { facultyCount, studentCount, hodCount, subjectCount, totalUsers };
+    const [facultyCount, studentCount, hodCount, subjectCount] = await Promise.all([
+        User.countDocuments({ role: 'FACULTY', isActive: true }),
+        User.countDocuments({ role: 'STUDENT', isActive: true }),
+        User.countDocuments({ role: 'HOD', isActive: true }),
+        Subject.countDocuments(),
+    ]);
+
+    const recentFaculty = await User.find({ role: 'FACULTY' })
+        .sort({ createdAt: -1 }).limit(5)
+        .select('name email createdAt').lean();
+
+    // Plan aggregation
+    const planAgg = await Plan.aggregate([
+        { $match: { status: 'ACTIVE' } },
+        {
+            $project: {
+                faculty_group_id: 1, department_id: 1,
+                total: { $size: { $ifNull: ['$syllabus_topics', []] } },
+                done: {
+                    $size: {
+                        $filter: {
+                            input: { $ifNull: ['$syllabus_topics', []] }, as: 't',
+                            cond: { $eq: ['$$t.completion_status', 'DONE'] }
+                        }
+                    }
+                },
+                missed: {
+                    $size: {
+                        $filter: {
+                            input: { $ifNull: ['$syllabus_topics', []] }, as: 't',
+                            cond: { $eq: ['$$t.completion_status', 'MISSED'] }
+                        }
+                    }
+                },
+            }
+        },
+        {
+            $addFields: {
+                progress: {
+                    $cond: [{ $gt: ['$total', 0] }, { $multiply: [{ $divide: ['$done', '$total'] }, 100] }, 0]
+                }
+            }
+        }
+    ]);
+
+    const avgProgress = planAgg.length > 0
+        ? Math.round(planAgg.reduce((s, p) => s + p.progress, 0) / planAgg.length) : 0;
+    const totalDone = planAgg.reduce((s, p) => s + p.done, 0);
+    const totalMissed = planAgg.reduce((s, p) => s + p.missed, 0);
+    const totalPending = planAgg.reduce((s, p) => s + (p.total - p.done - p.missed), 0);
+
+    // Departments + Groups
+    const depts = await Department.find().sort({ name: 1 }).select('name hod_id').lean();
+    const groups = await FacultyGroup.find()
+        .populate('department_id', 'name')
+        .select('name year semester section department_id faculty_ids')
+        .lean();
+
+    // Department performance
+    const departmentData = depts.map((dept: any) => {
+        const deptGroups = groups.filter((g: any) => {
+            const dId = (g.department_id as any)?._id?.toString() || g.department_id?.toString();
+            return dId === dept._id.toString();
+        });
+        const deptGroupIds = new Set(deptGroups.map((g: any) => g._id.toString()));
+        const deptPlans = planAgg.filter(p => deptGroupIds.has(p.faculty_group_id?.toString()));
+        const deptProgress = deptPlans.length > 0
+            ? Math.round(deptPlans.reduce((s, p) => s + p.progress, 0) / deptPlans.length) : 0;
+        const deptFaculty = deptGroups.reduce((s: number, g: any) => s + (g.faculty_ids?.length || 0), 0);
+        const deptDone = deptPlans.reduce((s, p) => s + p.done, 0);
+        const deptMissed = deptPlans.reduce((s, p) => s + p.missed, 0);
+
+        return {
+            name: dept.name.length > 14 ? dept.name.slice(0, 14) + '..' : dept.name,
+            fullName: dept.name,
+            progress: deptProgress,
+            groups: deptGroups.length,
+            plans: deptPlans.length,
+            faculty: deptFaculty,
+            done: deptDone,
+            missed: deptMissed,
+            onTrack: deptProgress >= 50,
+        };
+    });
+
+    // Year data (institution-wide)
+    const yearBuckets: Record<number, { progresses: number[], groupCount: number }> = {
+        1: { progresses: [], groupCount: 0 },
+        2: { progresses: [], groupCount: 0 },
+        3: { progresses: [], groupCount: 0 },
+        4: { progresses: [], groupCount: 0 },
+    };
+    groups.forEach((g: any) => {
+        const yr = g.year || 1;
+        if (yearBuckets[yr]) yearBuckets[yr].groupCount++;
+    });
+    planAgg.forEach((plan: any) => {
+        const group = groups.find(g => g._id.toString() === plan.faculty_group_id?.toString()) as any;
+        if (group) {
+            const yr = group.year || 1;
+            if (yearBuckets[yr]) yearBuckets[yr].progresses.push(plan.progress);
+        }
+    });
+    const yearData = Object.entries(yearBuckets).map(([yr, data]) => ({
+        name: `Year ${yr}`,
+        year: parseInt(yr),
+        progress: data.progresses.length > 0
+            ? Math.round(data.progresses.reduce((s, p) => s + p, 0) / data.progresses.length) : 0,
+        groups: data.groupCount,
+        active: data.progresses.length > 0,
+    }));
+
+    // Topic status donut
+    const topicStatusData = [
+        { name: 'Completed', value: totalDone, color: '#10b981' },
+        { name: 'Missed', value: totalMissed, color: '#ef4444' },
+        { name: 'Pending', value: totalPending, color: '#e2e8f0' },
+    ];
+
+    // Recent plans
+    const recentPlans = await Plan.find({ status: 'ACTIVE' })
+        .populate('faculty_group_id', 'name year semester')
+        .populate('subject_id', 'name')
+        .sort({ updatedAt: -1 }).limit(6).lean();
+
+    return {
+        facultyCount, studentCount, hodCount, subjectCount,
+        totalUsers: hodCount + facultyCount + studentCount,
+        avgProgress, totalDone, totalMissed, totalPending,
+        recentFaculty: JSON.parse(JSON.stringify(recentFaculty)),
+        departmentData, yearData, topicStatusData,
+        departmentCount: depts.length,
+        totalGroups: groups.length,
+        activePlanCount: planAgg.length,
+        actualDepartments: JSON.parse(JSON.stringify(depts)),
+        recentPlans: JSON.parse(JSON.stringify(recentPlans)),
+    };
 }
 
 export default async function PrincipalDashboard() {
-    const { facultyCount, studentCount, hodCount, subjectCount, totalUsers } = await getPrincipalStats();
+    const {
+        facultyCount, studentCount, hodCount, subjectCount, totalUsers,
+        avgProgress, totalDone, totalMissed, totalPending,
+        recentFaculty, departmentData, yearData, topicStatusData,
+        departmentCount, totalGroups, activePlanCount,
+        actualDepartments, recentPlans,
+    } = await getPrincipalStats();
 
     return (
         <DashboardLayout role="Principal">
-            {/* Header Section */}
-            <div className="mb-12 max-w-2xl animate-in slide-in-from-bottom-5 duration-500">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9E5D0] text-[#5C6836] text-xs font-bold uppercase tracking-wider mb-4 border border-[#C9C3A3]">
-                    <Building2 className="w-3 h-3" />
-                    Institute Overview
-                </div>
-                <SwissHeading className="text-4xl md:text-6xl mb-4 text-[#283618]">Executive Board</SwissHeading>
-                <p className="text-lg text-[#5C6836] leading-relaxed max-w-xl">
-                    Real-time institutional oversight, faculty load balancing, and academic calendar management.
-                </p>
-            </div>
+            <div className="space-y-6 animate-in fade-in duration-500">
 
-            {/* Quick Access Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12 animate-in slide-in-from-bottom-10 duration-700 delay-100">
-
-                {/* Settings */}
-                <Link href="/dashboard/principal/settings" className="group">
-                    <Card className="h-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white/80 backdrop-blur rounded-[24px] overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#BC4749] transition-colors duration-300 shadow-inner">
-                                    <BarChart3 className="w-6 h-6 text-[#BC4749] group-hover:text-[#FEFAE0]" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <CardTitle className="text-xl text-[#283618]">Settings</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-[#5C6836] mb-2 font-medium">
-                                Configure college defaults.
-                            </p>
-                            <div className="text-xs font-bold text-[#A6835B] uppercase tracking-wide">
-                                Admin Global
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* User & Faculty Management */}
-                <Link href="/admin/users" className="group">
-                    <Card className="h-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white/80 backdrop-blur rounded-[24px] overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#283618] transition-colors duration-300 shadow-inner">
-                                    <Users2 className="w-6 h-6 text-[#283618] group-hover:text-[#FEFAE0]" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <CardTitle className="text-xl text-[#283618]">User & Faculty</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-[#5C6836] mb-2 font-medium">
-                                Create accounts for HODs, Faculty, and Students.
-                            </p>
-                            <div className="text-xs font-bold text-[#A6835B] uppercase tracking-wide">
-                                {totalUsers} Accounts Active
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Faculty Groups / Load */}
-                <Link href="/admin/faculty" className="group">
-                    <Card className="h-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white/80 backdrop-blur rounded-[24px] overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#5C6836] transition-colors duration-300 shadow-inner">
-                                    <GraduationCap className="w-6 h-6 text-[#5C6836] group-hover:text-[#FEFAE0]" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <CardTitle className="text-xl text-[#283618]">Faculty Groups</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-[#5C6836] mb-2 font-medium">
-                                Oversee teaching groups.
-                            </p>
-                            <div className="text-xs font-bold text-[#A6835B] uppercase tracking-wide">
-                                {facultyCount} Professors
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Planner */}
-                <Link href="/admin/planner" className="group">
-                    <Card className="h-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white/80 backdrop-blur rounded-[24px] overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#A6835B] transition-colors duration-300 shadow-inner">
-                                    <BarChart3 className="w-6 h-6 text-[#A6835B] group-hover:text-[#FEFAE0]" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <CardTitle className="text-xl text-[#283618]">Smart Planner</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-[#5C6836] mb-2 font-medium">
-                                Generate academic plans.
-                            </p>
-                            <div className="text-xs font-bold text-[#A6835B] uppercase tracking-wide flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> System Ready
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                {/* Academic Calendar */}
-                <Link href="/admin/calendar" className="group">
-                    <Card className="h-full border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white/80 backdrop-blur rounded-[24px] overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-3 bg-[#E9E5D0] rounded-2xl group-hover:bg-[#283618] transition-colors duration-300 shadow-inner">
-                                    <CalendarRange className="w-6 h-6 text-[#283618] group-hover:text-[#FEFAE0]" />
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-[#C9C3A3] group-hover:text-[#A6835B] -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                            </div>
-                            <CardTitle className="text-xl text-[#283618]">Academic Calendar</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-[#5C6836] mb-2 font-medium">
-                                Set holidays and working days.
-                            </p>
-                            <div className="text-xs font-bold text-[#A6835B] uppercase tracking-wide">
-                                Active Term: Fall 2026
-                            </div>
-                        </CardContent>
-                    </Card>
-                </Link>
-            </div>
-
-            {/* Department Breakdown */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-bottom-10 duration-700 delay-200 mb-12">
-                <Card className="border-none shadow-lg rounded-[24px] bg-white ring-1 ring-black/5 overflow-hidden">
-                    <CardHeader className="border-b border-[#C9C3A3]/20 bg-[#FEFAE0]/30">
-                        <div className="flex justify-between items-center">
-                            <SwissHeading className="text-xl text-[#283618]">Department Performance</SwissHeading>
-                            <Button variant="outline" size="sm" className="rounded-full border-[#C9C3A3] text-[#5C6836] hover:bg-[#283618] hover:text-[#FEFAE0] text-xs transition-colors">Download Report</Button>
-                        </div>
-                    </CardHeader>
-                    <div className="p-0">
-                        <div className="px-6 py-3 bg-[#E9E5D0]/30 border-b border-[#C9C3A3]/20 text-xs font-bold text-[#5C6836] uppercase tracking-wider grid grid-cols-12 gap-4">
-                            <div className="col-span-6">Department</div>
-                            <div className="col-span-3 text-center">Faculty</div>
-                            <div className="col-span-3 text-right">Completion</div>
-                        </div>
-                        {[
-                            { name: "Computer Science", faculty: facultyCount, progress: 92, bg: "bg-green-500" },
-                            { name: "Mechanical Engg.", faculty: 18, progress: 85, bg: "bg-orange-500" },
-                            { name: "Electrical Engg.", faculty: 20, progress: 88, bg: "bg-blue-500" },
-                            { name: "Civil Engineering", faculty: 16, progress: 78, bg: "bg-red-500" },
-                        ].map((dept, i) => (
-                            <div key={i} className="px-6 py-4 border-b border-[#C9C3A3]/10 last:border-0 grid grid-cols-12 gap-4 items-center hover:bg-[#FEFAE0]/50 transition-colors cursor-default">
-                                <div className="col-span-6 flex items-center gap-3">
-                                    <div className="p-2 bg-[#E9E5D0] rounded-lg text-[#283618]">
-                                        <GraduationCap className="w-4 h-4" />
-                                    </div>
-                                    <span className="font-bold text-[#283618] text-sm">{dept.name}</span>
-                                </div>
-                                <div className="col-span-3 text-center text-sm font-medium text-[#5C6836]">{dept.faculty}</div>
-                                <div className="col-span-3 text-right flex items-center justify-end gap-2">
-                                    <div className="w-16 h-1.5 bg-[#E9E5D0] rounded-full overflow-hidden">
-                                        <div className={`h-full ${dept.bg}`} style={{ width: `${dept.progress}%` }}></div>
-                                    </div>
-                                    <span className="text-xs font-bold text-[#283618]">{dept.progress}%</span>
-                                </div>
-                            </div>
-                        ))}
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-black text-foreground tracking-tight">Institutional Overview</h1>
+                        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-widest font-black opacity-60">
+                            Principal Dashboard · Academic Session 2025–26
+                        </p>
                     </div>
-                </Card>
+                    <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-black px-4 py-2">
+                        <Activity className="w-3 h-3 mr-2 inline" /> {activePlanCount} Active Plans
+                    </Badge>
+                </div>
 
-                <Card className="border-none shadow-lg rounded-[24px] bg-white ring-1 ring-black/5 overflow-hidden">
-                    <CardHeader className="border-b border-[#C9C3A3]/20 bg-[#FEFAE0]/30">
-                        <div className="flex justify-between items-center">
-                            <SwissHeading className="text-xl text-[#283618]">Recent Administrative Actions</SwissHeading>
+                {/* KPI Row */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KPICard label="Total Personnel" value={totalUsers} icon={Users} href="/admin/users" color="blue"
+                        delta={`${facultyCount} faculty · ${studentCount} students`} />
+                    <KPICard label="Departments" value={departmentCount} icon={Building2} href="#departments" color="emerald"
+                        delta={`${hodCount} HODs assigned`} />
+                    <KPICard label="Faculty Groups" value={totalGroups} icon={Layers} href="/admin/faculty" color="violet"
+                        delta="Active class groups" />
+                    <KPICard label="Avg. Progress" value={`${avgProgress}%`} icon={Target} href="/admin/planner" color="amber"
+                        delta={`${totalDone} topics completed`} />
+                </div>
+
+                {/* Institutional Progress + Topic Donut */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Institution-wide progress gauage + year breakdown */}
+                    <Card className="lg:col-span-2 rounded-3xl border-border/60 shadow-sm hover:shadow-lg transition-all">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-xl font-black uppercase tracking-tight">Syllabus Synchronization</CardTitle>
+                                    <CardDescription>Institution-wide completion across all years</CardDescription>
+                                </div>
+                                <Badge className="bg-primary/10 text-primary border-0 font-black text-[10px] uppercase tracking-widest">
+                                    Institutional Metric
+                                </Badge>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center gap-10 mb-6">
+                                {/* Circular gauge */}
+                                <div className="relative w-32 h-32 shrink-0">
+                                    <svg className="w-full h-full -rotate-90">
+                                        <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-muted/20" />
+                                        <circle
+                                            cx="64" cy="64" r="56"
+                                            stroke="currentColor" strokeWidth="10" fill="transparent"
+                                            strokeDasharray={351.9}
+                                            strokeDashoffset={351.9 * (1 - avgProgress / 100)}
+                                            className="text-primary transition-all duration-1000"
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-2xl font-black">{avgProgress}%</span>
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Overall</span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 grid grid-cols-2 gap-3">
+                                    <MetricPill icon={CheckCircle2} label="Topics Done" value={totalDone} color="emerald" />
+                                    <MetricPill icon={XCircle} label="Missed" value={totalMissed} color="rose" />
+                                    <MetricPill icon={Clock} label="Pending" value={totalPending} color="slate" />
+                                    <MetricPill icon={Network} label="Plans Active" value={activePlanCount} color="blue" />
+                                </div>
+                            </div>
+                            <AnalyticsChart
+                                data={yearData}
+                                xKey="name" yKey="progress"
+                                type="bar"
+                                colors={['#2563eb', '#8b5cf6', '#10b981', '#f59e0b']}
+                                height={180} unit="%"
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* Topic Donut */}
+                    <Card className="rounded-3xl border-border/60 shadow-sm hover:shadow-lg transition-all">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Topic Breakdown</CardTitle>
+                            <CardDescription>All plans combined</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <AnalyticsChart
+                                data={topicStatusData} type="donut"
+                                nameKey="name" valueKey="value"
+                                height={200} showLegend={true}
+                            />
+                            <div className="mt-4 space-y-2 text-xs font-bold">
+                                <div className="flex justify-between">
+                                    <span className="text-emerald-600">✓ Completed</span>
+                                    <span className="font-black">{totalDone}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-rose-500">✗ Missed</span>
+                                    <span className="font-black">{totalMissed}</span>
+                                </div>
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>◷ Pending</span>
+                                    <span className="font-black">{totalPending}</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Department Performance Chart */}
+                <Card className="rounded-3xl border-border/60 shadow-sm" id="departments-chart">
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle className="text-xl font-black uppercase tracking-tight">Departmental Analytics</CardTitle>
+                                <CardDescription>Syllabus completion per department</CardDescription>
+                            </div>
+                            <BarChart3 className="w-5 h-5 text-muted-foreground/40" />
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-6 pt-6">
-                        <div className="flex gap-4 group p-2 hover:bg-[#FEFAE0]/50 rounded-xl transition-colors -mx-2 cursor-default">
-                            <div className="mt-1">
-                                <div className="w-3 h-3 rounded-full bg-[#A6835B] ring-4 ring-[#A6835B]/20 group-hover:ring-[#A6835B]/40 transition-all"></div>
+                    <CardContent>
+                        {departmentData.length > 0 ? (
+                            <>
+                                <AnalyticsChart
+                                    data={departmentData}
+                                    xKey="name" yKey="progress"
+                                    type="bar"
+                                    colors={['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']}
+                                    height={250} unit="%"
+                                />
+                                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {departmentData.map((dept: any) => (
+                                        <div key={dept.fullName} className={cn(
+                                            "p-4 rounded-2xl border transition-all",
+                                            dept.onTrack ? "bg-emerald-50/50 border-emerald-200/60" : "bg-rose-50/50 border-rose-200/60"
+                                        )}>
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <p className="text-sm font-black text-foreground">{dept.fullName}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-bold mt-0.5">
+                                                        {dept.groups} group{dept.groups !== 1 ? 's' : ''} · {dept.faculty} faculty
+                                                    </p>
+                                                </div>
+                                                <span className={cn("text-lg font-black", dept.onTrack ? "text-emerald-600" : "text-rose-500")}>
+                                                    {dept.progress}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-white/60 rounded-full mt-2 overflow-hidden">
+                                                <div
+                                                    className={cn("h-full rounded-full", dept.onTrack ? "bg-emerald-500" : "bg-rose-400")}
+                                                    style={{ width: `${dept.progress}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex gap-3 mt-2 text-[10px] font-bold">
+                                                <span className="text-emerald-600">✓ {dept.done}</span>
+                                                <span className="text-rose-500">✗ {dept.missed}</span>
+                                                {!dept.onTrack && (
+                                                    <span className="text-amber-600 flex items-center gap-1">
+                                                        <AlertTriangle className="w-3 h-3" /> Below 50%
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground">
+                                <Building2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p className="font-bold">No departments found.</p>
+                                <p className="text-sm mt-1">Add departments below to see analytics.</p>
                             </div>
-                            <div>
-                                <p className="font-bold text-sm text-[#283618]">HOD Computer Science approved new syllabus</p>
-                                <p className="text-xs text-[#5C6836] mt-0.5 font-medium">Updated "Advanced AI" curriculum modules.</p>
-                                <p className="text-[10px] text-[#C9C3A3] mt-1 font-mono uppercase tracking-widest">Today, 9:00 AM</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 group p-2 hover:bg-[#FEFAE0]/50 rounded-xl transition-colors -mx-2 cursor-default">
-                            <div className="mt-1">
-                                <div className="w-3 h-3 rounded-full bg-[#5C6836] ring-4 ring-[#5C6836]/20 group-hover:ring-[#5C6836]/40 transition-all"></div>
-                            </div>
-                            <div>
-                                <p className="font-bold text-sm text-[#283618]">Calendar Updated by Registrar</p>
-                                <p className="text-xs text-[#5C6836] mt-0.5 font-medium">Added "Founder's Day" as a restricted holiday.</p>
-                                <p className="text-[10px] text-[#C9C3A3] mt-1 font-mono uppercase tracking-widest">Yesterday</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 group p-2 hover:bg-[#FEFAE0]/50 rounded-xl transition-colors -mx-2 cursor-default">
-                            <div className="mt-1">
-                                <div className="w-3 h-3 rounded-full bg-[#BC4749] ring-4 ring-[#BC4749]/20 group-hover:ring-[#BC4749]/40 transition-all"></div>
-                            </div>
-                            <div>
-                                <p className="font-bold text-sm text-[#283618]">Low Attendance Alert - Civil Dept</p>
-                                <p className="text-xs text-[#5C6836] mt-0.5 font-medium">Automated flag raised for 3rd Year Civil.</p>
-                                <p className="text-[10px] text-[#C9C3A3] mt-1 font-mono uppercase tracking-widest">2 days ago</p>
-                            </div>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
+
+                {/* Bottom Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Recent Faculty */}
+                    <Card className="lg:col-span-4 rounded-3xl border-border/60 shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base font-black uppercase tracking-tight opacity-70">Recent Faculty</CardTitle>
+                            <Link href="/admin/users"><Button variant="ghost" size="sm" className="text-[10px] font-black text-primary">Registry</Button></Link>
+                        </CardHeader>
+                        <CardContent className="space-y-2">                        {recentFaculty.map((fac: any) => (
+                                <Link key={fac._id} href={`/dashboard/hod/faculty/${fac._id}`}
+                                    className="flex items-center gap-3 p-3 rounded-2xl hover:bg-muted/40 transition-all group">
+                                    <div className="w-10 h-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-black text-sm">
+                                        {fac.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-black">{fac.name}</p>
+                                        <p className="text-[10px] text-muted-foreground font-bold opacity-60 truncate">{fac.email}</p>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-0.5 transition-all" />
+                                </Link>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* Recent Plan Activity */}
+                    <Card className="lg:col-span-5 rounded-3xl border-border/60 shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base font-black uppercase tracking-tight opacity-70">Active Plans</CardTitle>
+                            <Link href="/admin/planner"><Button variant="ghost" size="sm" className="text-[10px] font-black text-primary">Master Scheduler</Button></Link>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {recentPlans.length > 0 ? recentPlans.map((plan: any, idx: number) => {
+                                const total = plan.syllabus_topics?.length || 0;
+                                const done = plan.syllabus_topics?.filter((t: any) => t.completion_status === 'DONE').length || 0;
+                                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                                return (
+                                    <div key={idx} className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/30 border border-border/40">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-xs font-black truncate">{plan.subject_id?.name}</span>
+                                                <Badge className="text-[9px] bg-primary/10 text-primary border-0 font-black">
+                                                    Y{plan.faculty_group_id?.year} S{plan.faculty_group_id?.semester}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground font-bold mt-0.5">{plan.faculty_group_id?.name}</p>
+                                            <div className="w-full h-1 bg-muted rounded-full mt-1.5">
+                                                <div className={cn("h-full rounded-full", pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-rose-400")}
+                                                    style={{ width: `${pct}%` }} />
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-black text-primary">{pct}%</span>
+                                    </div>
+                                );
+                            }) : (
+                                <p className="text-sm text-muted-foreground text-center py-8 italic">No active plans.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Admin Actions */}
+                    <Card className="lg:col-span-3 bg-primary text-primary-foreground border-none rounded-3xl shadow-2xl">
+                        <CardHeader>
+                            <CardTitle className="text-primary-foreground font-black uppercase tracking-tight">Lead Actions</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {[
+                                { label: 'Master Scheduler', href: '/admin/planner' },
+                                { label: 'Institutional Audit', href: '/admin/users' },
+                                { label: 'Calendar Editor', href: '/admin/calendar' },
+                                { label: 'Settings', href: '/settings' },
+                            ].map(item => (
+                                <Link key={item.href} href={item.href}
+                                    className="flex items-center justify-between p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 hover:border-white/20 transition-all group">
+                                    <p className="text-sm font-black uppercase tracking-tight">{item.label}</p>
+                                    <ArrowRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                                </Link>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Department Manager */}
+                <div id="departments">
+                    <DepartmentManager initialDepartments={actualDepartments} />
+                </div>
             </div>
         </DashboardLayout>
     );
 }
 
+function KPICard({ label, value, icon: Icon, href, color, delta }: any) {
+    const colors: any = {
+        blue: { border: 'border-blue-200/60', icon: 'bg-blue-500/10 text-blue-600', hover: 'group-hover:bg-blue-600' },
+        emerald: { border: 'border-emerald-200/60', icon: 'bg-emerald-500/10 text-emerald-600', hover: 'group-hover:bg-emerald-600' },
+        violet: { border: 'border-violet-200/60', icon: 'bg-violet-500/10 text-violet-600', hover: 'group-hover:bg-violet-600' },
+        amber: { border: 'border-amber-200/60', icon: 'bg-amber-500/10 text-amber-600', hover: 'group-hover:bg-amber-600' },
+    };
+    const c = colors[color] || colors.blue;
+    return (
+        <Link href={href} className="block transition-transform hover:-translate-y-1">
+            <Card className={cn("hover:shadow-xl transition-all border group rounded-2xl", c.border)}>
+                <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
+                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300", c.icon, c.hover, "group-hover:text-white")}>
+                            <Icon className="w-4 h-4" />
+                        </div>
+                    </div>
+                    <p className="text-3xl font-black text-foreground tracking-tight">{value}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold mt-1 opacity-60">{delta}</p>
+                </CardContent>
+            </Card>
+        </Link>
+    );
+}
+
+function MetricPill({ icon: Icon, label, value, color }: any) {
+    const cls: any = {
+        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+        rose: 'bg-rose-50 text-rose-700 border-rose-100',
+        blue: 'bg-blue-50 text-blue-700 border-blue-100',
+        slate: 'bg-slate-50 text-slate-600 border-slate-100',
+    };
+    return (
+        <div className={cn("flex items-center gap-2 p-2.5 rounded-xl border text-xs font-black", cls[color] || cls.slate)}>
+            <Icon className="w-3.5 h-3.5 shrink-0" />
+            <div>
+                <p className="font-black text-base leading-none">{value}</p>
+                <p className="text-[9px] opacity-70 uppercase tracking-wide font-bold">{label}</p>
+            </div>
+        </div>
+    );
+}

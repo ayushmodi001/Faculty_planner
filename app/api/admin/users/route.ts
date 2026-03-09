@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import User, { UserRole } from '@/models/User';
 import FacultyGroup from '@/models/FacultyGroup';
+import Department from '@/models/Department';
 import { hashPassword, verifyJWT } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -13,7 +14,7 @@ const userSchema = z.object({
     department: z.string().optional(),
     mobile: z.string().optional(),
     facultyType: z.enum(['JUNIOR', 'SENIOR']).optional(),
-    facultyGroupName: z.string().optional(),
+    facultyGroupName: z.string().optional(), // used only to resolve facultyGroupId
     facultyGroupId: z.string().optional()
 });
 
@@ -28,10 +29,18 @@ export async function GET(req: NextRequest) {
         const session = cookie ? await verifyJWT(cookie) : null;
         if (!session || !allowedRoles.includes(session.role as UserRole)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-        }
-
-        await dbConnect();
-        const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
+        }        await dbConnect();
+        const rawUsers = await User.find()
+            .populate('department_id', 'name')
+            .populate('facultyGroupId', 'name')
+            .select('-passwordHash')
+            .sort({ createdAt: -1 })
+            .lean();
+        const users = rawUsers.map((u: any) => ({
+            ...u,
+            department: u.department_id ? u.department_id.name : undefined,
+            facultyGroupName: u.facultyGroupId ? (u.facultyGroupId as any).name : undefined,
+        }));
         return NextResponse.json({ success: true, users });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -85,22 +94,22 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Hash Password
-                const hashedPassword = await hashPassword(user.password);
-
-                // Resolve facultyGroupId if only name was provided
+                const hashedPassword = await hashPassword(user.password);                // Resolve facultyGroupId if only name was provided
                 let computedGroupId = user.facultyGroupId;
-                let computedGroupName = user.facultyGroupName;
 
-                if (!computedGroupId && computedGroupName) {
-                    const group = await FacultyGroup.findOne({ name: computedGroupName });
+                if (!computedGroupId && user.facultyGroupName) {
+                    const group = await FacultyGroup.findOne({ name: user.facultyGroupName });
                     if (group) {
                         computedGroupId = group._id.toString();
-                        computedGroupName = group.name;
-                    } else if (user.role === UserRole.STUDENT) {
-                        // For students, having a valid group is ideal but we can let it pass or fail.
-                        // We will just leave it undefined and they will have no data.
-                        computedGroupName = user.facultyGroupName;
                     }
+                }
+
+                // Resolve Department string to ObjectId
+                let computedDeptId;
+                const deptName = session.role === UserRole.HOD ? session.department : user.department;
+                if (deptName) {
+                    const dept = await Department.findOne({ name: deptName });
+                    if (dept) computedDeptId = dept._id;
                 }
 
                 const newUser = await User.create({
@@ -108,10 +117,13 @@ export async function POST(req: NextRequest) {
                     email: normalizedEmail,
                     passwordHash: hashedPassword,
                     isActive: true,
-                    department: session.role === UserRole.HOD ? session.department as string : user.department,
-                    facultyGroupId: computedGroupId,
-                    facultyGroupName: computedGroupName
+                    department_id: computedDeptId,
+                    facultyGroupId: computedGroupId ? new (await import('mongoose')).default.Types.ObjectId(computedGroupId) : undefined,
                 });
+
+                if (computedDeptId && user.role === UserRole.HOD) {
+                    await Department.findByIdAndUpdate(computedDeptId, { hod_id: newUser._id });
+                }
 
                 createdUsers.push({ email: newUser.email, id: newUser._id });
             } catch (err: any) {
@@ -137,12 +149,18 @@ export async function PUT(req: NextRequest) {
         const session = cookie ? await verifyJWT(cookie) : null;
         if (!session || !allowedRoles.includes(session.role as UserRole)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-        }
-
-        const body = await req.json();
-        const { _id, ...updateData } = body;
+        }        const body = await req.json();
+        // Strip server-only fields; enrollmentNumber / employeeId are kept in updateData
+        const { _id, passwordHash, ...updateData } = body;
 
         if (!_id) return NextResponse.json({ error: "User ID required" }, { status: 400 });
+
+        // Prevent privilege escalation
+        if (session.role !== UserRole.ADMIN && session.role !== UserRole.PRINCIPAL) {
+            if (updateData.role === UserRole.ADMIN || updateData.role === UserRole.PRINCIPAL) {
+                return NextResponse.json({ error: "Unauthorized: Cannot escalate to Admin/Principal" }, { status: 403 });
+            }
+        }
 
         await dbConnect();
 
@@ -154,13 +172,18 @@ export async function PUT(req: NextRequest) {
         if (updateData.password) {
             updateData.passwordHash = await hashPassword(updateData.password);
             delete updateData.password;
-        }
-
-        if (updateData.facultyGroupName && !updateData.facultyGroupId) {
+        }        if (updateData.facultyGroupName && !updateData.facultyGroupId) {
             const group = await FacultyGroup.findOne({ name: updateData.facultyGroupName });
-            if (group) {
-                updateData.facultyGroupId = group._id.toString();
-                updateData.facultyGroupName = group.name;
+            if (group) updateData.facultyGroupId = group._id;
+        }
+        // Never persist the name string — drop it from the update payload
+        delete updateData.facultyGroupName;
+
+        if (updateData.department) {
+            const dept = await Department.findOne({ name: updateData.department });
+            if (dept) {
+                updateData.department_id = dept._id;
+                delete updateData.department;
             }
         }
 

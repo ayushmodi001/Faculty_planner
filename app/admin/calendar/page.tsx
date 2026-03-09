@@ -1,13 +1,12 @@
 import CalendarInterface from './CalendarInterface';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { SwissHeading } from '@/components/ui/SwissUI';
 
 export default function CalendarPage() {
     return (
-        <DashboardLayout role="HOD">
-            <div className="mb-8">
-                <SwissHeading>Academic Calendar Management</SwissHeading>
-                <p className="text-muted-foreground">Manage holidays, exams, and important academic dates.</p>
+        <DashboardLayout role="Admin">
+            <div className="mb-8 space-y-1">
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Academic Calendar</h1>
+                <p className="text-slate-500 text-sm">Manage holidays, exams, and important academic dates.</p>
             </div>
             <CalendarInterface readOnly={false} />
         </DashboardLayout>

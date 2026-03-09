@@ -37,10 +37,13 @@ export async function POST(req: NextRequest) {
         if (!isMatch) {
             console.log(`[Login Failed] Password mismatch for user: ${email}`);
             return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-        }
+        }        // 3. Create Session & Update Last Login
+        let redirectUrl = await login(user);
 
-        // 3. Create Session & Update Last Login
-        const redirectUrl = await login(user);
+        // Force password change for invited users on first login
+        if (user.mustChangePassword) {
+            redirectUrl = '/force-change-password';
+        }
 
         user.lastLogin = new Date();
         await user.save();

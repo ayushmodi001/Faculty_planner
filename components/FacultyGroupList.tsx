@@ -113,7 +113,7 @@ export default function FacultyGroupList({ groups }: FacultyGroupListProps) {
                                             onChange={() => handleSelect(groupIdString)}
                                         />
                                         <div className="bg-black text-white px-3 py-1 font-mono text-xs font-bold uppercase rotate-[-2deg]">
-                                            {group.subjects.length} Subjects
+                                            {((group as any).subjects || []).length} Subjects
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
@@ -126,14 +126,14 @@ export default function FacultyGroupList({ groups }: FacultyGroupListProps) {
                                 </Link>
 
                                 <div className="space-y-2 mb-4">
-                                    {group.subjects.slice(0, 3).map((subject, idx) => (
+                                    {((group as any).subjects || []).slice(0, 3).map((subject: any, idx: number) => (
                                         <div key={idx} className="bg-gray-100 border border-black px-2 py-1 text-sm font-medium truncate">
                                             {subject}
                                         </div>
                                     ))}
-                                    {group.subjects.length > 3 && (
+                                    {((group as any).subjects || []).length > 3 && (
                                         <div className="text-xs text-gray-500 font-mono pl-1">
-                                            + {group.subjects.length - 3} more...
+                                            + {((group as any).subjects || []).length - 3} more...
                                         </div>
                                     )}
                                 </div>

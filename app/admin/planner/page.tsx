@@ -1,6 +1,5 @@
 import React from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { SwissHeading, SwissSubHeading } from '@/components/ui/SwissUI';
 import PlannerInterface from './PlannerInterface';
 import { getAllFacultyGroups } from '@/app/actions/faculty';
 import { IFacultyGroup } from '@/models/FacultyGroup';
@@ -12,17 +11,17 @@ export default async function SmartPlannerPage() {
     const result = await getAllFacultyGroups();
     const facultyGroups = result.success ? (result.data as IFacultyGroup[]) : [];
 
-    return (
-        <DashboardLayout role="HOD">
-            <div className="max-w-7xl mx-auto mb-8 animate-in slide-in-from-bottom-5 duration-500">
-                <SwissSubHeading className="text-primary mb-1">AI Engine</SwissSubHeading>
-                <SwissHeading>Smart Syllabus Planner</SwissHeading>
-                <p className="text-muted-foreground mt-2 text-sm max-w-2xl">
-                    Generate optimized lesson plans using AI. Paste your syllabus, select a faculty group, and let the engine distribute topics based on academic calendar constraints.
-                </p>
+    return (        <DashboardLayout role="Admin">
+            <div className="max-w-7xl mx-auto mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="space-y-1.5">
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">Academic Planner</h1>
+                    <p className="text-muted-foreground text-sm max-w-2xl font-medium">
+                        Create and manage teaching schedules. Select a faculty group and subject to generate or view the teaching schedule.
+                    </p>
+                </div>
             </div>
 
-            <div className="max-w-7xl mx-auto animate-in fade-in duration-700 delay-100">
+            <div className="max-w-7xl mx-auto">
                 <PlannerInterface facultyGroups={JSON.parse(JSON.stringify(facultyGroups))} />
             </div>
         </DashboardLayout>

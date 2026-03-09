@@ -38,19 +38,18 @@ export async function login(user: any) {
     // Determine redirect based on role
     let redirectUrl = '/dashboard/student';
     switch (user.role) {
-        case 'ADMIN': redirectUrl = '/dashboard/admin'; break;
+        case 'ADMIN': redirectUrl = '/admin'; break;
         case 'PRINCIPAL': redirectUrl = '/dashboard/principal'; break;
         case 'HOD': redirectUrl = '/dashboard/hod'; break;
         case 'FACULTY': redirectUrl = '/dashboard/faculty'; break;
         case 'STUDENT': redirectUrl = '/dashboard/student'; break;
-    }
-
-    // Create session token
+    }    // Create session token
     const token = await signJWT({
-        sub: user._id,
+        sub: user._id.toString(),
         email: user.email,
         role: user.role,
-        name: user.name
+        name: user.name,
+        mustChangePassword: user.mustChangePassword ?? false,
     });
 
     // Set HTTP-only cookie

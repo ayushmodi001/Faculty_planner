@@ -9,7 +9,7 @@ const SlotSchema = z.object({
     room: z.string().optional(),
     subject: z.string().optional(),
     faculty: z.string().optional(),
-    type: z.enum(['Lecture', 'Lab', 'Break', 'Self Study', 'Project']).default('Lecture')
+    type: z.enum(['Lecture', 'Lab', 'Break', 'Seminar', 'Tutorial', 'Workshop', 'Self Study', 'Project']).default('Lecture')
 });
 
 const TimetableUpdateSchema = z.object({
@@ -69,7 +69,12 @@ export async function POST(req: NextRequest) {
                 if (!slot.faculty) continue;
 
                 for (const group of otherGroups) {
-                    const groupSlots = (group.timetable as any)?.[day] || [];
+                    const groupSlots = (() => {
+                        const tt = group.timetable instanceof Map
+                            ? Object.fromEntries(group.timetable)
+                            : (group.timetable as any) || {};
+                        return tt[day] || [];
+                    })();
                     for (const gSlot of groupSlots) {
                         if (gSlot.faculty === slot.faculty) {
                             if (slot.startTime < gSlot.endTime && slot.endTime > gSlot.startTime) {
@@ -95,7 +100,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 2. Synchronize Active Plans with new Timetable
-        const activePlans = await Plan.find({ faculty_id: facultyGroupId, status: 'ACTIVE' });
+        const activePlans = await Plan.find({ faculty_group_id: facultyGroupId, status: 'ACTIVE' });
 
         if (activePlans.length > 0 && updatedGroup.termStartDate && updatedGroup.termEndDate) {
             const startDate = new Date(updatedGroup.termStartDate).toISOString().split('T')[0];
@@ -129,12 +134,16 @@ export async function POST(req: NextRequest) {
 
             // Reschedule each plan
             for (const plan of activePlans) {
+                // Populate subject to get name for filtering
+                await plan.populate('subject_id', 'name');
+                const subjectName = (plan.subject_id as any)?.name || '';
+
                 const { totalSlots, schedule } = calculateAvailableSlots(
                     new Date(startDate),
                     new Date(endDate),
                     updatedGroup as any,
                     calendar as any,
-                    plan.subject,
+                    subjectName,
                     dynamicHolidays
                 );
 
@@ -168,7 +177,7 @@ export async function POST(req: NextRequest) {
                 plan.total_slots_available = totalSlots;
                 plan.markModified('syllabus_topics');
                 await plan.save();
-                console.log(`[Timetable Sync] Synchronized plan for ${plan.subject}. Budget is now ${totalSlots}, mapped ${topicsReassigned} core topics.`);
+                console.log(`[Timetable Sync] Synchronized plan for ${subjectName}. Budget is now ${totalSlots}, mapped ${topicsReassigned} core topics.`);
             }
         }
 
