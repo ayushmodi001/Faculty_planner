@@ -1,8 +1,0 @@
-.next/types/validator.ts(251,39): error TS2307: Cannot find module '../../app/setup-admin/page.js' or its corresponding type declarations.
-.next/types/validator.ts(368,39): error TS2307: Cannot find module '../../app/api/auth/register/route.js' or its corresponding type declarations.
-app/api/admin/subjects/route.ts(54,13): error TS7034: Variable 'mappedFacultyIds' implicitly has type 'any[]' in some locations where its type cannot be determined.
-app/api/admin/subjects/route.ts(63,26): error TS7005: Variable 'mappedFacultyIds' implicitly has an 'any[]' type.
-components/FacultyGroupList.tsx(116,46): error TS18048: 'group.subjects' is possibly 'undefined'.
-components/FacultyGroupList.tsx(129,38): error TS18048: 'group.subjects' is possibly 'undefined'.
-components/FacultyGroupList.tsx(134,38): error TS18048: 'group.subjects' is possibly 'undefined'.
-components/FacultyGroupList.tsx(136,48): error TS18048: 'group.subjects' is possibly 'undefined'.
