@@ -3,8 +3,13 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 
-const SECRET_KEY = process.env.JWT_SECRET_KEY || 'uaps-super-secret-key-change-in-prod-v1';
-const key = new TextEncoder().encode(SECRET_KEY);
+const SECRET_KEY = process.env.JWT_SECRET_KEY;
+
+if (!SECRET_KEY && process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: JWT_SECRET_KEY environment variable is not defined in production.');
+}
+
+const key = new TextEncoder().encode(SECRET_KEY || 'uaps-dev-fallback-key-v1');
 
 export async function hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(12); // Cost factor 12: Good balance of security/performance
