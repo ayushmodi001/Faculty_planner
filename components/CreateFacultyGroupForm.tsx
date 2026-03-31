@@ -241,7 +241,7 @@ export default function CreateFacultyGroupForm() {
                             <div className="space-y-2">
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Locked Department</label>
                                 <div className="w-full h-11 bg-slate-100 border border-slate-200 rounded-xl px-4 flex items-center text-sm font-black text-slate-500 overflow-hidden truncate">
-                                    {viewer.department_name || viewer.department || 'Your Department'} (HOD Locked)
+                                    {viewer.department_name || 'Your Department'} (HOD Locked)
                                 </div>
                                 <input type="hidden" value={departmentId} />
                             </div>
