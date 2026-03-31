@@ -10,7 +10,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function SwissHeading({ children, className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
     return (
-        <h2 className={cn("text-3xl font-black tracking-tight text-[#0A1128]", className)} {...props}>
+        <h2 className={cn("text-3xl font-black tracking-tight text-[#0A1128] dark:text-slate-100", className)} {...props}>
             {children}
         </h2>
     );
@@ -34,7 +34,7 @@ export function Card({ children, className, ...props }: CardProps) {
     return (
         <div
             className={cn(
-                "rounded-2xl border border-slate-100 bg-white text-foreground shadow-sm transition-all",
+                "rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-card text-foreground shadow-sm transition-all hover:shadow-md",
                 className
             )}
             {...props}
@@ -49,11 +49,11 @@ export function CardHeader({ children, className, ...props }: CardProps) {
 }
 
 export function CardDescription({ children, className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-    return <p className={cn("text-sm text-slate-500 font-medium", className)} {...props}>{children}</p>;
+    return <p className={cn("text-sm text-slate-500 font-medium dark:text-slate-400 leading-relaxed", className)} {...props}>{children}</p>;
 }
 
 export function CardTitle({ children, className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-    return <h3 className={cn("font-black leading-none tracking-tight text-[#0A1128]", className)} {...props}>{children}</h3>;
+    return <h3 className={cn("font-black leading-none tracking-tight text-[#0A1128] dark:text-white uppercase", className)} {...props}>{children}</h3>;
 }
 
 export function CardContent({ children, className, ...props }: CardProps) {
@@ -106,13 +106,13 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({ children, className, variant = 'primary', size = 'md', ...props }: ButtonProps) {
     const variants = {
-        primary: "bg-[#2563eb] text-white hover:bg-[#1d4ed8] shadow-lg shadow-blue-600/20",
-        secondary: "bg-slate-100 text-[#0A1128] hover:bg-slate-200",
-        outline: "border border-slate-200 bg-transparent text-[#0A1128] hover:bg-slate-50",
-        ghost: "bg-transparent hover:bg-slate-100 text-slate-500 hover:text-[#0A1128]",
-        destructive: "bg-rose-500 text-white hover:bg-rose-600 shadow-lg shadow-rose-600/20",
-        orange: "bg-[#FD5E19] text-white hover:bg-[#FD5E19]/90 shadow-xl shadow-orange-600/20",
-        navy: "bg-[#0A1128] text-white hover:bg-[#0A1128]/90 shadow-xl shadow-slate-900/20",
+        primary: "bg-[#2563eb] text-white hover:bg-[#1d4ed8] shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:-translate-y-0.5",
+        secondary: "bg-slate-100 dark:bg-slate-800 text-[#0A1128] dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700",
+        outline: "border border-slate-200 dark:border-slate-800 bg-transparent text-[#0A1128] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-blue-500",
+        ghost: "bg-transparent hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-500 hover:text-[#0A1128] dark:hover:text-white",
+        destructive: "bg-rose-500 text-white hover:bg-rose-600 shadow-lg shadow-rose-600/20 hover:-translate-y-0.5",
+        orange: "bg-[#FD5E19] text-white hover:bg-[#FD5E19]/90 shadow-xl shadow-orange-600/20 hover:-translate-y-0.5",
+        navy: "bg-[#0A1128] dark:bg-slate-900 text-white hover:bg-[#0A1128]/90 dark:hover:bg-black shadow-xl shadow-slate-900/20 hover:-translate-y-0.5",
     };
 
     const sizes = {
@@ -125,7 +125,7 @@ export function Button({ children, className, variant = 'primary', size = 'md', 
     return (
         <button
             className={cn(
-                "inline-flex items-center justify-center whitespace-nowrap font-black transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50",
+                "inline-flex items-center justify-center whitespace-nowrap font-black transition-all active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 gap-2",
                 variants[variant],
                 sizes[size],
                 className
@@ -141,15 +141,15 @@ export function Button({ children, className, variant = 'primary', size = 'md', 
 
 export function Badge({ children, variant = "default", className }: { children: React.ReactNode, variant?: "default" | "success" | "warning" | "destructive" | "primary" | "orange" | "outline" | "secondary" | "navy", className?: string }) {
     const badgeVariants = {
-        default: "border-transparent bg-slate-100 text-slate-600",
-        success: "bg-emerald-50 text-emerald-600 border border-emerald-200",
-        warning: "bg-amber-50 text-amber-600 border border-amber-200",
-        destructive: "bg-rose-50 text-rose-600 border border-rose-200",
-        primary: "bg-blue-50 text-blue-600 border border-blue-200",
-        orange: "bg-orange-50 text-orange-600 border border-orange-200",
-        outline: "bg-transparent border border-slate-200 text-slate-500",
-        secondary: "bg-slate-800 text-white border border-slate-700",
-        navy: "bg-[#0A1128] text-white border-none",
+        default: "border-transparent bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
+        success: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20",
+        warning: "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20",
+        destructive: "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20",
+        primary: "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20",
+        orange: "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20",
+        outline: "bg-transparent border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400",
+        secondary: "bg-slate-800 dark:bg-slate-700 text-white border border-slate-700 dark:border-slate-600",
+        navy: "bg-[#0A1128] dark:bg-slate-100 text-white dark:text-[#0A1128] border-none",
     }
 
     return (

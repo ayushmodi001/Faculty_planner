@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +17,8 @@ import Plan from '@/models/Plan';
 import Department from '@/models/Department';
 import { cn } from '@/lib/utils';
 import { AnalyticsChart } from '@/components/dashboard/AnalyticsChart';
+import { verifyJWT } from '@/lib/auth';
+import mongoose from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,25 +31,40 @@ const MISSED_REASON_LABELS: Record<string, string> = {
     OTHER: 'Other',
 };
 
+async function getHODDepartmentId(): Promise<string | null> {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('session')?.value;
+    if (!token) return null;
+    const session = await verifyJWT(token);
+    return (session?.department_id as string) ?? null;
+}
+
 async function getDashboardStats() {
     await dbConnect();
     await import('@/models/Subject');
     await import('@/models/User');
 
+    const departmentId = await getHODDepartmentId();
+    const deptFilter = departmentId ? { department_id: new mongoose.Types.ObjectId(departmentId) } : {};
+    const deptFilterStr = departmentId ? { department_id: departmentId } : {};
+
     const [facultyCount, studentCount, subjectCount, facultyGroupCount] = await Promise.all([
-        User.countDocuments({ role: 'FACULTY', isActive: true }),
-        User.countDocuments({ role: 'STUDENT', isActive: true }),
-        Subject.countDocuments(),
-        FacultyGroup.countDocuments(),
+        User.countDocuments({ role: 'FACULTY', isActive: true, ...deptFilter }),
+        User.countDocuments({ role: 'STUDENT', isActive: true, ...deptFilter }),
+        Subject.countDocuments(departmentId ? { department_id: new mongoose.Types.ObjectId(departmentId) } : {}),
+        FacultyGroup.countDocuments(deptFilter),
     ]);
 
-    const recentFaculty = await User.find({ role: 'FACULTY' })
+    const recentFaculty = await User.find({ role: 'FACULTY', ...deptFilter })
         .sort({ createdAt: -1 }).limit(5)
         .select('name email createdAt').lean();
 
-    // Plan aggregation with topic stats
+    // Plan aggregation with topic stats (scoped to department's groups)
+    const deptGroups = await FacultyGroup.find(deptFilter).select('_id').lean();
+    const deptGroupIds = deptGroups.map(g => g._id);
+
     const planAgg = await Plan.aggregate([
-        { $match: { status: 'ACTIVE' } },
+        { $match: { status: 'ACTIVE', ...(deptGroupIds.length > 0 ? { faculty_group_id: { $in: deptGroupIds } } : {}) } },
         {
             $project: {
                 faculty_group_id: 1, subject_id: 1,
@@ -83,7 +101,7 @@ async function getDashboardStats() {
     const totalDone = planAgg.reduce((s, p) => s + p.done, 0);
     const totalMissed = planAgg.reduce((s, p) => s + p.missed, 0);
     const totalPending = planAgg.reduce((s, p) => s + (p.total - p.done - p.missed), 0);    // Groups with proper year/semester fields
-    const groups = await FacultyGroup.find()
+    const groups = await FacultyGroup.find(deptFilter)
         .populate('faculty_ids', 'name')
         .populate('department_id', 'name')
         .select('name year semester section department_id faculty_ids')
@@ -155,46 +173,20 @@ async function getDashboardStats() {
             progress: Math.round(plan?.progress || 0),
         };
     }).sort((a, b) => b.progress - a.progress);    // Recent active plans
-    const recentPlans = await Plan.find({ status: 'ACTIVE' })
+    const recentPlans = await Plan.find({
+        status: 'ACTIVE',
+        ...(deptGroupIds.length > 0 ? { faculty_group_id: { $in: deptGroupIds } } : {})
+    })
         .populate('faculty_group_id', 'name year semester')
         .populate('subject_id', 'name')
         .sort({ updatedAt: -1 }).limit(5).lean();
 
-    // Faculty underperformance: aggregate missed topics per faculty
+    // Faculty underperformance: aggregate missed topics per faculty (dept-scoped)
     const UNDERPERFORM_THRESHOLD = 0.30; // 30% miss rate
     const MIN_MARKED = 5; // minimum topics marked before flagging
 
-    const facultyPerfAgg = await Plan.aggregate([
-        { $match: { status: 'ACTIVE' } },
-        { $unwind: '$syllabus_topics' },
-        { $match: { 'syllabus_topics.completion_status': { $in: ['DONE', 'MISSED'] } } },
-        {
-            $group: {
-                _id: '$faculty_ids',
-                done: { $sum: { $cond: [{ $eq: ['$syllabus_topics.completion_status', 'DONE'] }, 1, 0] } },
-                missed: { $sum: { $cond: [{ $eq: ['$syllabus_topics.completion_status', 'MISSED'] }, 1, 0] } },
-                missedReasons: {
-                    $push: {
-                        $cond: [
-                            { $eq: ['$syllabus_topics.completion_status', 'MISSED'] },
-                            { reason: '$syllabus_topics.missed_reason', custom: '$syllabus_topics.missed_reason_custom' },
-                            '$$REMOVE'
-                        ]
-                    }
-                }
-            }
-        }
-    ]);
-
-    // Per-faculty miss stats (keyed by faculty ObjectId)
-    // Plans have faculty_ids as an array; unwind above uses that
-    // We need to join with User. We'll do it in JS for simplicity.
-    const facultyIds = await User.find({ role: 'FACULTY', isActive: true }).select('_id name email').lean();
-
-    // Build per-faculty stats from plan-level aggregation
-    // Alternative: direct per-topic aggregation keyed on assigned_faculty_id
     const perFacultyStats = await Plan.aggregate([
-        { $match: { status: 'ACTIVE' } },
+        { $match: { status: 'ACTIVE', ...(deptGroupIds.length > 0 ? { faculty_group_id: { $in: deptGroupIds } } : {}) } },
         { $unwind: '$syllabus_topics' },
         { $match: { 'syllabus_topics.completion_status': { $in: ['DONE', 'MISSED'] } } },
         {
@@ -207,6 +199,8 @@ async function getDashboardStats() {
         },
         { $match: { _id: { $ne: null } } }
     ]);
+
+    const facultyIds = await User.find({ role: 'FACULTY', isActive: true, ...deptFilter }).select('_id name email').lean();
 
     // Build underperforming faculty list
     const underperformingFaculty: any[] = [];
@@ -239,6 +233,7 @@ async function getDashboardStats() {
         underperformingFaculty: JSON.parse(JSON.stringify(underperformingFaculty)),
     };
 }
+
 
 export default async function HODDashboard() {    const {
         facultyCount, studentCount, subjectCount, facultyGroupCount,

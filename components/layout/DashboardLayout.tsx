@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 interface DashboardLayoutProps {
     children: React.ReactNode;
     role?: 'HOD' | 'Admin' | 'Faculty' | 'Student' | 'Principal';
+    departmentName?: string;  // shown in nav for HOD
 }
 
 // Resolves the home dashboard path for each role
@@ -24,7 +25,7 @@ function getDashboardHref(role: string) {
     return '/dashboard/hod';
 }
 
-export default function DashboardLayout({ children, role = 'HOD' }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, role = 'HOD', departmentName }: DashboardLayoutProps) {
     const router = useRouter();
     const pathname = usePathname();
 
@@ -48,9 +49,17 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
                             </button>
                         )}                        <Link href={dashboardHref} className="flex items-center gap-4 transition-all active:scale-95 group">
                             <Logo size="md" showText={false} className="shrink-0" />
-                            <div className="flex flex-col border-l border-slate-200 pl-4 py-0.5">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none">{role === 'Admin' ? 'HOD' : role}</span>
-                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-1">Management</span>
+                            <div className="flex flex-col border-l border-border/40 pl-4 py-0.5">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 leading-none">
+                                    {role === 'Admin' ? 'HOD' : role}
+                                </span>
+                                {departmentName ? (
+                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest mt-0.5">
+                                        {departmentName}
+                                    </span>
+                                ) : (
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Management</span>
+                                )}
                             </div>
                         </Link>
 
@@ -90,7 +99,7 @@ export default function DashboardLayout({ children, role = 'HOD' }: DashboardLay
             </nav>
 
             {/* Main Content */}
-            <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 md:px-8 lg:px-12 py-8 md:py-12 animate-in fade-in slide-in-from-bottom-2 duration-700">
+            <main className="flex-1 w-full px-4 md:px-8 lg:px-12 py-8 md:py-12 animate-in fade-in slide-in-from-bottom-2 duration-700 mx-auto">
                 {children}
             </main>
 

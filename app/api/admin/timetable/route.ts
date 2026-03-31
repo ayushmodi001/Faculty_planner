@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
+import { verifyJWT } from '@/lib/auth';
+import { UserRole } from '@/models/User';
 import FacultyGroup from '@/models/FacultyGroup';
 import { z } from 'zod';
 
@@ -19,6 +21,10 @@ const TimetableUpdateSchema = z.object({
 
 export async function GET(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
@@ -30,6 +36,15 @@ export async function GET(req: NextRequest) {
         const group = await FacultyGroup.findById(id).lean();
         if (!group) {
             return NextResponse.json({ error: "Group not found" }, { status: 404 });
+        }
+
+        if (session.role === UserRole.HOD || session.role === UserRole.FACULTY || session.role === UserRole.STUDENT) {
+            const isDeptMatch = session.department_id && group.department_id && session.department_id === group.department_id.toString();
+            const groupIds = Array.isArray(session.facultyGroupIds) ? session.facultyGroupIds : [];
+            const isGroupMatch = groupIds.includes(id) || session.facultyGroupId === id;
+            if (!isDeptMatch && !isGroupMatch) {
+                return NextResponse.json({ error: "Access denied to this timetable" }, { status: 403 });
+            }
         }
 
         return NextResponse.json({
@@ -50,6 +65,14 @@ import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
 
 export async function POST(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        // Only PRINCIPAL, ADMIN, HOD, and SENIOR FACULTY can edit timetables
+        const canEdit = session.role === UserRole.PRINCIPAL || session.role === UserRole.ADMIN || session.role === UserRole.HOD || (session.role === UserRole.FACULTY && session.facultyType === 'SENIOR');
+        if (!canEdit) return NextResponse.json({ error: "Insufficient permissions to edit timetable" }, { status: 403 });
+
         await dbConnect();
         const body = await req.json();
         const validation = TimetableUpdateSchema.safeParse(body);
@@ -59,6 +82,15 @@ export async function POST(req: NextRequest) {
         }
 
         const { facultyGroupId, timetable } = validation.data;
+
+        const targetGroup = await FacultyGroup.findById(facultyGroupId).lean();
+        if (!targetGroup) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+
+        // Check department constraint for HOD / SENIOR FACULTY
+        if (session.role === UserRole.HOD || (session.role === UserRole.FACULTY && session.facultyType === 'SENIOR')) {
+            const isDeptMatch = session.department_id && targetGroup.department_id && session.department_id === targetGroup.department_id.toString();
+            if (!isDeptMatch) return NextResponse.json({ error: "Cannot edit timetable outside of your department" }, { status: 403 });
+        }
 
         // Conflict Validation
         const otherGroups = await FacultyGroup.find({ _id: { $ne: facultyGroupId } }).lean();
@@ -190,6 +222,13 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        const canEdit = session.role === UserRole.PRINCIPAL || session.role === UserRole.ADMIN || session.role === UserRole.HOD || (session.role === UserRole.FACULTY && session.facultyType === 'SENIOR');
+        if (!canEdit) return NextResponse.json({ error: "Insufficient permissions to delete timetable" }, { status: 403 });
+
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
@@ -200,6 +239,14 @@ export async function DELETE(req: NextRequest) {
 
         // Clear the timetable (set to empty object or structure with empty arrays)
         // We set it to default empty structure for consistency
+        const groupToCheck = await FacultyGroup.findById(id).lean();
+        if (!groupToCheck) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+
+        if (session.role === UserRole.HOD || (session.role === UserRole.FACULTY && session.facultyType === 'SENIOR')) {
+            const isDeptMatch = session.department_id && groupToCheck.department_id && session.department_id === groupToCheck.department_id.toString();
+            if (!isDeptMatch) return NextResponse.json({ error: "Cannot clear timetable outside of your department" }, { status: 403 });
+        }
+
         const defaults: any = {};
         ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].forEach(d => defaults[d] = []);
 

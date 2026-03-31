@@ -329,14 +329,20 @@ export default function TimetableEditor({ facultyGroups }: TimetableEditorProps)
     const assignedNames = (activeGroup as any)?.subjects || [];
     const filteredSubjects = assignedNames.length > 0
         ? subjectList.filter((s: { _id: string; name: string; code: string }) =>
-            assignedNames.some((name: string) => name.trim().toLowerCase() === s.name.trim().toLowerCase())
+            assignedNames.some((n: any) => {
+                const subjectName = typeof n === 'string' ? n : n.name;
+                return (subjectName || '').trim().toLowerCase() === s.name.trim().toLowerCase();
+            })
         )
         : subjectList;
 
     const allowedSubjects = filteredSubjects.length > 0 ? filteredSubjects : subjectList;
 
     const allowedFaculties = (activeGroup as any)?.members?.length
-        ? facultyList.filter(f => (activeGroup as any).members?.some((m: string) => m.trim().toLowerCase() === f.name.trim().toLowerCase()))
+        ? facultyList.filter(f => (activeGroup as any).members?.some((m: any) => {
+            const facultyName = typeof m === 'string' ? m : m.name;
+            return (facultyName || '').trim().toLowerCase() === f.name.trim().toLowerCase();
+        }))
         : facultyList;
 
     return (

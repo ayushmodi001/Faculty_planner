@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Subject from '@/models/Subject';
 import Department from '@/models/Department';
-import User from '@/models/User';
+import User, { UserRole } from '@/models/User';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { verifyJWT } from '@/lib/auth';
+
+const EDIT_ROLES = [UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.HOD];
 
 const subjectSchema = z.object({
     name: z.string().min(2),
@@ -12,14 +15,24 @@ const subjectSchema = z.object({
     department: z.string().optional(),
     faculties: z.array(z.string()).optional(),
     syllabus: z.string().optional(),
-    year: z.string().optional(),
-    semester: z.string().optional()
+    year: z.union([z.string(), z.number()]).optional().transform(v => v ? Number(v) : undefined),
+    semester: z.union([z.string(), z.number()]).optional().transform(v => v ? Number(v) : undefined)
 });
 
 export async function GET(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+
         await dbConnect();
-        const subjects = await Subject.find({}).sort({ name: 1 });
+
+        const query: any = {};
+        // HOD only sees subjects from their own department
+        if (session?.role === UserRole.HOD && session.department_id) {
+            query.department_id = session.department_id;
+        }
+
+        const subjects = await Subject.find(query).sort({ name: 1 });
         return NextResponse.json({ success: true, subjects });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,6 +41,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session || !EDIT_ROLES.includes(session.role as UserRole)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
         await dbConnect();
         const body = await req.json();
 
@@ -44,9 +62,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Subject code already exists" }, { status: 400 });
         }
 
-        // Resolve relationships
+        // HOD can only create subjects in their own department
         let mappedDeptId;
-        if (department) {
+        if (session.role === UserRole.HOD) {
+            mappedDeptId = session.department_id; // Force their department
+        } else if (department) {
             const dept = await Department.findOne({ name: department });
             if (dept) mappedDeptId = dept._id;
         }
@@ -76,6 +96,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session || !EDIT_ROLES.includes(session.role as UserRole)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
@@ -91,11 +116,22 @@ export async function DELETE(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session || !EDIT_ROLES.includes(session.role as UserRole)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
         await dbConnect();
         const body = await req.json();
 
         // Allow partial updates securely
-        const { id, name, code, syllabus, department, year, semester } = body;
+        const result = subjectSchema.safeParse(body);
+        if (!result.success) {
+            return NextResponse.json({ error: "Invalid data", details: (result.error as any).issues || (result.error as any).errors }, { status: 400 });
+        }
+
+        const { id } = body;
+        const { name, code, syllabus, department, year, semester } = result.data;
         if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
         if (code) {

@@ -17,6 +17,7 @@ export interface IUser extends Document {
     mobile?: string;
     facultyType?: 'JUNIOR' | 'SENIOR';
     facultyGroupId?: mongoose.Types.ObjectId;
+    facultyGroupIds?: mongoose.Types.ObjectId[];
     enrollmentNumber?: string;
     employeeId?: string;
     mustChangePassword: boolean;
@@ -38,6 +39,7 @@ const UserSchema: Schema = new Schema({
     lastLogin: { type: Date },
     facultyType: { type: String, enum: ['JUNIOR', 'SENIOR'] },
     facultyGroupId: { type: Schema.Types.ObjectId, ref: 'FacultyGroup' },
+    facultyGroupIds: [{ type: Schema.Types.ObjectId, ref: 'FacultyGroup' }], // Added for multi-group assignment for HOD/Faculty
     enrollmentNumber: { type: String, trim: true, sparse: true },
     employeeId: { type: String, trim: true, sparse: true },
     mustChangePassword: { type: Boolean, default: false },
@@ -46,6 +48,7 @@ const UserSchema: Schema = new Schema({
 
 UserSchema.index({ department_id: 1 });
 UserSchema.index({ facultyGroupId: 1 });
+UserSchema.index({ facultyGroupIds: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ isActive: 1 });
 UserSchema.index({ enrollmentNumber: 1 }, { sparse: true, unique: true });

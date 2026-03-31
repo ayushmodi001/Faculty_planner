@@ -17,6 +17,9 @@ const inviteSchema = z.object({
     mobile: z.string().optional(),
     facultyType: z.enum(['JUNIOR', 'SENIOR']).optional(),
     facultyGroupName: z.string().optional(), // used only to resolve facultyGroupId
+    facultyGroupId: z.string().optional(),
+    facultyGroupNames: z.array(z.string()).optional(),
+    facultyGroupIds: z.array(z.string()).optional(),
     enrollmentNumber: z.string().optional(),
     employeeId: z.string().optional(),
 });
@@ -64,17 +67,23 @@ export async function POST(req: NextRequest) {
 
         // --- Resolve Department ---
         let computedDeptId;
-        const deptName = session.role === UserRole.HOD
-            ? (session as any).department
-            : data.department;
-        if (deptName) {
-            const dept = await Department.findOne({ name: deptName });
+        if (session.role === UserRole.HOD) {
+            computedDeptId = session.department_id;
+        } else if (data.department) {
+            const dept = await Department.findOne({ name: data.department });
             if (dept) computedDeptId = dept._id;
-        }        // --- Resolve Faculty Group ---
+        }        // --- Resolve Faculty Group (Student) ---
         let computedGroupId;
         if (data.facultyGroupName) {
             const group = await FacultyGroup.findOne({ name: data.facultyGroupName });
             if (group) computedGroupId = group._id;
+        }
+
+        // --- Resolve Faculty Groups (Faculty/HOD) ---
+        let computedGroupIds = data.facultyGroupIds || [];
+        if (computedGroupIds.length === 0 && data.facultyGroupNames && data.facultyGroupNames.length > 0) {
+            const groups = await FacultyGroup.find({ name: { $in: data.facultyGroupNames } });
+            computedGroupIds = groups.map(g => g._id.toString());
         }
 
         const newUser = await User.create({
@@ -86,6 +95,7 @@ export async function POST(req: NextRequest) {
             mobile: data.mobile,
             facultyType: data.facultyType,
             facultyGroupId: computedGroupId,
+            facultyGroupIds: computedGroupIds,
             enrollmentNumber: data.enrollmentNumber || undefined,
             employeeId: data.employeeId || undefined,
             isActive: true,

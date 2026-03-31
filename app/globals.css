@@ -27,8 +27,8 @@
   --radius-radius: var(--radius);
 }
 
+/* ── Light Theme ─────────────────────────────────────────────────────────── */
 :root {
-  /* Premium Light Theme - Matching HOD Dashboard aesthetic */
   --background: #F8FAFC;
   --foreground: #0F172A;
 
@@ -38,6 +38,7 @@
   --popover: #FFFFFF;
   --popover-foreground: #0F172A;
 
+  /* Single consistent blue brand color */
   --primary: #2563EB;
   --primary-foreground: #FFFFFF;
 
@@ -54,43 +55,47 @@
   --destructive-foreground: #FFFFFF;
 
   --border: #E2E8F0;
-  --input: #E2E8F0;
+  /* Input background is explicitly white so dark:bg-input/30 works correctly */
+  --input: #FFFFFF;
   --ring: #2563EB;
 
   --radius: 1rem;
 }
 
+/* ── Dark Theme ──────────────────────────────────────────────────────────── */
 .dark {
-  /* Sleek Dark Theme */
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #111319;
+  --foreground: #f1f3f9;
 
-  --card: #18181b;
-  --card-foreground: #fafafa;
+  --card: #1a1c24;
+  --card-foreground: #f1f3f9;
 
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
+  --popover: #1e2029;
+  --popover-foreground: #f1f3f9;
 
-  --primary: #FD5E19;
+  /* Same blue as light mode — consistent brand identity */
+  --primary: #3b82f6;
   --primary-foreground: #ffffff;
 
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
+  --secondary: #252833;
+  --secondary-foreground: #f1f3f9;
 
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
+  --muted: #1e2029;
+  --muted-foreground: #9ba3bf;
 
-  --accent: #FD5E19;
-  --accent-foreground: #fafafa;
+  --accent: #3b82f6;
+  --accent-foreground: #ffffff;
 
-  --destructive: #9f1239;
+  --destructive: #ef4444;
   --destructive-foreground: #fafafa;
 
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #FD5E19;
+  --border: #252833;
+  /* Input surface: lighter than bg but darker than card highlights */
+  --input: #2a2d3d;
+  --ring: #3b82f6;
 }
 
+/* ── Base Layer ──────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -103,35 +108,74 @@
     scroll-behavior: smooth;
   }
 
-  /* Custom Scrollbar for non-touch devices */
+  /* Scrollbar */
   @media (pointer: fine) {
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
-      @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+      @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors;
     }
   }
 }
 
-.animate-delay-100 {
-  animation-delay: 100ms;
+/* ── Dark-mode: surface overrides ───────────────────────────────────────── */
+
+/* Base Card & Surface Logic */
+.dark .bg-white, 
+.dark .bg-card,
+.dark [class*="bg-white"] {
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
 }
 
-.animate-delay-200 {
-  animation-delay: 200ms;
+.dark .bg-slate-50  { background-color: #1a1c24 !important; }
+.dark .bg-slate-100 { background-color: #1e2029 !important; }
+.dark .bg-slate-200 { background-color: #252833 !important; }
+.dark .bg-slate-900 { background-color: #0e1015 !important; }
+
+/* Inconsistent Hardcoded Navy Text Colors - using attribute selector to bypass parsing issues */
+.dark [class*="text-[#0A1128]"],
+.dark .text-slate-900,
+.dark .text-gray-900 {
+  color: var(--foreground) !important;
 }
 
-.animate-delay-300 {
-  animation-delay: 300ms;
-}
+/* Spacing helpers */
+.premium-padding { @apply p-6 md:p-8; }
+.premium-gap     { @apply gap-6 md:gap-8; }
+.stack-tight     { @apply space-y-2; }
+.stack-md        { @apply space-y-4; }
+.stack-lg        { @apply space-y-8; }
 
-.animate-delay-500 {
-  animation-delay: 500ms;
+/* Interactive Hover Actions */
+.interactive-item {
+  @apply transition-all duration-200 hover:shadow-md active:scale-[0.98];
 }
+.interactive-item:hover .hover-primary { @apply text-primary; }
+.interactive-item:hover .hover-icon { @apply scale-110; }
+
+/* Overrides for Metric Pills */
+.dark .bg-amber-50, .dark .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.12) !important; }
+.dark .bg-emerald-50, .dark .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.12) !important; }
+.dark .bg-rose-50, .dark .bg-rose-500\/10 { background-color: rgba(239, 68, 68, 0.12) !important; }
+.dark .bg-blue-50, .dark .bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.12) !important; }
+
+.dark .text-amber-600, .dark .text-amber-900 { color: #fbbf24 !important; }
+.dark .text-emerald-600, .dark .text-emerald-700 { color: #34d399 !important; }
+.dark .text-rose-500, .dark .text-rose-700 { color: #f87171 !important; }
+.dark .text-blue-600, .dark .text-blue-700 { color: #93c5fd !important; }
+
+/* Native Forms in Dark */
+.dark select, 
+.dark input {
+  background-color: #1e2029 !important;
+  color: #f1f3f9 !important;
+  border-color: #252833 !important;
+}
+.dark input::placeholder { color: #64748b !important; }
+
+/* ── Animation helpers ───────────────────────────────────────────────────── */
+.animate-delay-100 { animation-delay: 100ms; }
+.animate-delay-200 { animation-delay: 200ms; }
+.animate-delay-300 { animation-delay: 300ms; }
+.animate-delay-500 { animation-delay: 500ms; }

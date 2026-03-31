@@ -77,7 +77,9 @@ async function getPrincipalStats() {
     const totalPending = planAgg.reduce((s, p) => s + (p.total - p.done - p.missed), 0);
 
     // Departments + Groups
-    const depts = await Department.find().sort({ name: 1 }).select('name hod_id').lean();
+    const depts = await Department.find()
+        .populate('hod_id', 'name email')
+        .sort({ name: 1 }).lean();
     const groups = await FacultyGroup.find()
         .populate('department_id', 'name')
         .select('name year semester section department_id faculty_ids')

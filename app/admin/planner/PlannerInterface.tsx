@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { IFacultyGroup } from '@/models/FacultyGroup';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Wand2, CalendarCheck, AlertCircle, FileText, BrainCircuit, Sparkles, ChevronRight, UploadCloud, Users, LayoutGrid, UserCircle } from 'lucide-react';
+import { Loader2, Wand2, CalendarCheck, AlertCircle, FileText, BrainCircuit, Sparkles, ChevronRight, UploadCloud, Users, LayoutGrid, UserCircle, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import PlanViewer from './PlanViewer';
 import { SearchableSelect } from "@/components/ui/searchable-select"
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { getPlanForGroup } from '@/app/actions/faculty';
 import { IPlan } from '@/models/Plan';
 import { cn } from '@/lib/utils';
+import { useRBAC } from '@/hooks/useRBAC';
 
 interface PlannerInterfaceProps {
     facultyGroups: IFacultyGroup[];
@@ -42,12 +43,16 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
     const [subject, setSubject] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
-    const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+    const [availableSubjects, setAvailableSubjects] = useState<any[]>([]);
     const [availableMembers, setAvailableMembers] = useState<string[]>([]);
     const [facultyName, setFacultyName] = useState("");
     const [secondaryFacultyName, setSecondaryFacultyName] = useState("");
     const [isParsing, setIsParsing] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const rbac = useRBAC();
+
+    // Override readOnly if the user's RBAC role doesn't allow editing
+    const effectiveReadOnly = readOnly || rbac.isReadOnly || rbac.isStudent;
 
     useEffect(() => {
         setMounted(true);
@@ -61,6 +66,35 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
             setAvailableMembers((group as any).members || []);
             setSubject("");
             setFacultyName("");
+            setSecondaryFacultyName("");
+        }
+    };
+
+    const handleSubjectChange = (val: string) => {
+        setSubject(val);
+        const group = facultyGroups.find(g => (g._id as unknown as string) === selectedGroupId);
+        
+        // Auto-fill Teacher
+        if (group && (group as any).subjectAssignments) {
+            const matches = (group as any).subjectAssignments.filter((a: any) => 
+                (a.subject_id?.name || a.subject_id) === val
+            );
+            if (matches.length > 0) {
+                setFacultyName(matches[0].faculty_id?.name || "");
+                if (matches.length > 1) {
+                    setSecondaryFacultyName(matches[1].faculty_id?.name || "");
+                } else {
+                    setSecondaryFacultyName("");
+                }
+            }
+        }
+
+        // Auto-fill Syllabus
+        const subjObj = availableSubjects.find((s: any) => (s.name || s) === val) as any;
+        if (subjObj && subjObj.syllabus) {
+            setSyllabusText(subjObj.syllabus);
+        } else {
+            setSyllabusText("");
         }
     };
 
@@ -218,10 +252,10 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
     }
 
     return (
-        <div className={`grid ${readOnly && defaultGroupId ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-5'} gap-8`}>
+        <div className={`grid ${effectiveReadOnly && defaultGroupId ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-5'} gap-8`}>
 
             {/* Config Panel */}
-            {!(readOnly && defaultGroupId) && (
+            {!(effectiveReadOnly && defaultGroupId) && (
                 <div className="lg:col-span-2 space-y-6">
                     <Card className="shadow-lg border-border/60">
                         <CardHeader className="pb-4 border-b bg-muted/20">
@@ -252,12 +286,20 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                                         disabled={!selectedGroupId}
                                         options={availableSubjects.map((subj: any) => ({ value: subj.name || subj, label: subj.name || subj }))}
                                         value={subject}
-                                        onValueChange={setSubject}
+                                        onValueChange={handleSubjectChange}
                                         placeholder="Choose Subject..."
                                     />
                                 </div>
 
-                                {!readOnly && (
+                                {/* Read-only badge for restricted roles */}
+                                {effectiveReadOnly && !readOnly && (
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                                        <Lock className="w-3.5 h-3.5" />
+                                        View-Only Mode — contact your HOD to make changes
+                                    </div>
+                                )}
+
+                                {!effectiveReadOnly && (
                                     <>
                                         <div className="space-y-4 pt-4 border-t border-border/40">
                                             <div className="space-y-1.5">
@@ -293,8 +335,16 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
                                                 <UploadCloud className="w-3.5 h-3.5" /> Syllabus
                                             </label>
                                             <div className="relative group border-2 border-dashed border-border/60 rounded-2xl p-8 bg-muted/10 hover:bg-muted/30 hover:border-primary/40 transition-all text-center">
+                                                {syllabusText && (
+                                                    <div className="absolute top-2 right-2 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 animate-in fade-in zoom-in duration-300">
+                                                        <Sparkles className="w-2.5 h-2.5" />
+                                                        <span className="text-[8px] font-black uppercase tracking-widest">Master Found</span>
+                                                    </div>
+                                                )}
                                                 <UploadCloud className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-                                                <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest">Import PDF or Text File</p>
+                                                <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest">
+                                                    {syllabusText ? "Syllabus Fetched — Drop new file to override" : "Import PDF or Text File"}
+                                                </p>
                                                 <input
                                                     type="file"
                                                     accept=".pdf,.txt"
@@ -339,7 +389,7 @@ export default function PlannerInterface({ facultyGroups, readOnly = false, init
             )}
 
             {/* Viewer Panel */}
-            <div className={readOnly && defaultGroupId ? 'lg:col-span-1' : 'lg:col-span-3'}>
+            <div className={effectiveReadOnly && defaultGroupId ? 'lg:col-span-1' : 'lg:col-span-3'}>
                 {generatedPlan ? (
                     <PlanViewer plan={generatedPlan} />
                 ) : (

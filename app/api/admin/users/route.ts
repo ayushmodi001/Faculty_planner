@@ -14,8 +14,10 @@ const userSchema = z.object({
     department: z.string().optional(),
     mobile: z.string().optional(),
     facultyType: z.enum(['JUNIOR', 'SENIOR']).optional(),
-    facultyGroupName: z.string().optional(), // used only to resolve facultyGroupId
-    facultyGroupId: z.string().optional()
+    facultyGroupName: z.string().optional(), // used only to resolve facultyGroupId (Student)
+    facultyGroupId: z.string().optional(),
+    facultyGroupNames: z.array(z.string()).optional(), // used only to resolve facultyGroupIds (Faculty/HOD)
+    facultyGroupIds: z.array(z.string()).optional()
 });
 
 const bulkUserSchema = z.array(userSchema);
@@ -30,9 +32,20 @@ export async function GET(req: NextRequest) {
         if (!session || !allowedRoles.includes(session.role as UserRole)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         }        await dbConnect();
-        const rawUsers = await User.find()
+
+        // Enforce HOD limitation: can only see users of their own department
+        const filter: any = {};
+        if (session.role === UserRole.HOD) {
+            if (!session.department_id) {
+                return NextResponse.json({ error: "HOD has no department assigned" }, { status: 403 });
+            }
+            filter.department_id = session.department_id;
+        }
+
+        const rawUsers = await User.find(filter)
             .populate('department_id', 'name')
             .populate('facultyGroupId', 'name')
+            .populate('facultyGroupIds', 'name')
             .select('-passwordHash')
             .sort({ createdAt: -1 })
             .lean();
@@ -40,6 +53,7 @@ export async function GET(req: NextRequest) {
             ...u,
             department: u.department_id ? u.department_id.name : undefined,
             facultyGroupName: u.facultyGroupId ? (u.facultyGroupId as any).name : undefined,
+            facultyGroupNames: u.facultyGroupIds ? u.facultyGroupIds.map((g: any) => g.name) : undefined,
         }));
         return NextResponse.json({ success: true, users });
     } catch (error: any) {
@@ -94,9 +108,8 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Hash Password
-                const hashedPassword = await hashPassword(user.password);                // Resolve facultyGroupId if only name was provided
+                const hashedPassword = await hashPassword(user.password);                // Resolve facultyGroupId (single, e.g. Student)
                 let computedGroupId = user.facultyGroupId;
-
                 if (!computedGroupId && user.facultyGroupName) {
                     const group = await FacultyGroup.findOne({ name: user.facultyGroupName });
                     if (group) {
@@ -104,21 +117,31 @@ export async function POST(req: NextRequest) {
                     }
                 }
 
+                // Resolve facultyGroupIds (array, e.g. Faculty/HOD)
+                let computedGroupIds = user.facultyGroupIds || [];
+                if (computedGroupIds.length === 0 && user.facultyGroupNames && user.facultyGroupNames.length > 0) {
+                    const groups = await FacultyGroup.find({ name: { $in: user.facultyGroupNames } });
+                    computedGroupIds = groups.map(g => g._id.toString());
+                }
+
                 // Resolve Department string to ObjectId
                 let computedDeptId;
-                const deptName = session.role === UserRole.HOD ? session.department : user.department;
-                if (deptName) {
-                    const dept = await Department.findOne({ name: deptName });
+                if (session.role === UserRole.HOD) {
+                    computedDeptId = session.department_id; // Absolute restriction
+                } else if (user.department) {
+                    const dept = await Department.findOne({ name: user.department });
                     if (dept) computedDeptId = dept._id;
                 }
 
+                const mongooseInstance = (await import('mongoose')).default;
                 const newUser = await User.create({
                     ...user,
                     email: normalizedEmail,
                     passwordHash: hashedPassword,
                     isActive: true,
                     department_id: computedDeptId,
-                    facultyGroupId: computedGroupId ? new (await import('mongoose')).default.Types.ObjectId(computedGroupId) : undefined,
+                    facultyGroupId: computedGroupId ? new mongooseInstance.Types.ObjectId(computedGroupId) : undefined,
+                    facultyGroupIds: computedGroupIds.map(id => new mongooseInstance.Types.ObjectId(id)),
                 });
 
                 if (computedDeptId && user.role === UserRole.HOD) {
@@ -164,6 +187,19 @@ export async function PUT(req: NextRequest) {
 
         await dbConnect();
 
+        // HOD cannot edit PRINCIPAL, HOD, or ADMIN — or users outside their dept
+        if (session.role === UserRole.HOD) {
+            const targetUser = await User.findById(_id).lean();
+            if (!targetUser) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            const targetRole = (targetUser as any).role;
+            if (targetRole === UserRole.PRINCIPAL || targetRole === UserRole.HOD || targetRole === UserRole.ADMIN) {
+                return NextResponse.json({ error: 'Cannot edit this user' }, { status: 403 });
+            }
+            if (session.department_id && (targetUser as any).department_id?.toString() !== session.department_id) {
+                return NextResponse.json({ error: 'Cannot edit users outside your department' }, { status: 403 });
+            }
+        }
+
         if (updateData.email) {
             const existing = await User.findOne({ email: updateData.email, _id: { $ne: _id } });
             if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 400 });
@@ -176,15 +212,23 @@ export async function PUT(req: NextRequest) {
             const group = await FacultyGroup.findOne({ name: updateData.facultyGroupName });
             if (group) updateData.facultyGroupId = group._id;
         }
-        // Never persist the name string — drop it from the update payload
         delete updateData.facultyGroupName;
 
-        if (updateData.department) {
+        if (updateData.facultyGroupNames && updateData.facultyGroupNames.length > 0 && (!updateData.facultyGroupIds || updateData.facultyGroupIds.length === 0)) {
+            const groups = await FacultyGroup.find({ name: { $in: updateData.facultyGroupNames } });
+            updateData.facultyGroupIds = groups.map(g => g._id);
+        }
+        delete updateData.facultyGroupNames;
+
+        if (session.role === UserRole.HOD) {
+            updateData.department_id = session.department_id; // Force HOD's department
+            delete updateData.department;
+        } else if (updateData.department) {
             const dept = await Department.findOne({ name: updateData.department });
             if (dept) {
                 updateData.department_id = dept._id;
-                delete updateData.department;
             }
+            delete updateData.department;
         }
 
         const updatedUser = await User.findByIdAndUpdate(_id, updateData, { new: true });
@@ -208,8 +252,26 @@ export async function DELETE(req: NextRequest) {
         if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
         await dbConnect();
-        await User.findByIdAndDelete(id);
 
+        // HOD cannot delete PRINCIPAL or another HOD
+        const target = await User.findById(id).lean();
+        if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+        if (session.role === UserRole.HOD) {
+            if (
+                (target as any).role === UserRole.PRINCIPAL ||
+                (target as any).role === UserRole.HOD ||
+                (target as any).role === UserRole.ADMIN
+            ) {
+                return NextResponse.json({ error: 'Insufficient permissions to delete this user' }, { status: 403 });
+            }
+            // Also enforce department scope
+            if (session.department_id && (target as any).department_id?.toString() !== session.department_id) {
+                return NextResponse.json({ error: 'Cannot delete users outside your department' }, { status: 403 });
+            }
+        }
+
+        await User.findByIdAndDelete(id);
         return NextResponse.json({ success: true });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

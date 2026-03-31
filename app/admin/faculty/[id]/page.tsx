@@ -1,13 +1,25 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import EditFacultyGroupForm from '@/components/EditFacultyGroupForm';
 import dbConnect from '@/lib/db';
 import FacultyGroup from '@/models/FacultyGroup';
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
+import { UserRole } from '@/models/User';
 
 export default async function EditFacultyPage({ params }: { params: Promise<{ id: string }> }) {
     await dbConnect();
-    const { id } = await params;    // Import models for population
+    const { id } = await params;
+
+    // RBAC: HOD can only edit groups within their own department
+    const cookieStore = await cookies();
+    const token = cookieStore.get('session')?.value;
+    const session = token ? await verifyJWT(token) : null;
+    if (!session) redirect('/login');
+
+    // Import models for population
     await import('@/models/Subject');
     await import('@/models/User');
 
@@ -20,6 +32,13 @@ export default async function EditFacultyPage({ params }: { params: Promise<{ id
 
     if (!group) {
         notFound();
+    }
+
+    // HOD can only edit groups within their own department
+    if (session.role === UserRole.HOD && session.department_id) {
+        if (group.department_id?.toString() !== session.department_id) {
+            notFound(); // Silently 404 from HOD perspective
+        }
     }
 
     // Derive unique subjects from subjectAssignments

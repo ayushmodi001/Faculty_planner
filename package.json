@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:principal": "node seed_principal.js --yes",
+    "seed:principal:reset": "node seed_principal.js --reset --yes"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

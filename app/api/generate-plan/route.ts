@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
+import { verifyJWT } from '@/lib/auth';
+import { UserRole } from '@/models/User';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import FacultyGroup from '@/models/FacultyGroup';
@@ -34,6 +36,13 @@ const InputSchema = z.object({
 
 export async function POST(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        const canEdit = session.role === UserRole.PRINCIPAL || session.role === UserRole.ADMIN || session.role === UserRole.HOD || (session.role === UserRole.FACULTY && session.facultyType === 'SENIOR');
+        if (!canEdit) return NextResponse.json({ error: "Insufficient permissions to generate plans" }, { status: 403 });
+
         await dbConnect();
         const body = await req.json();
 
@@ -46,6 +55,11 @@ export async function POST(req: NextRequest) {
         if (!facultyGroup) {
             console.log(`[Planner Error] FacultyGroup not found: ${facultyGroupId}`);
             return NextResponse.json({ error: 'Faculty Group not found' }, { status: 404 });
+        }
+
+        if (session.role === UserRole.HOD || (session.role === UserRole.FACULTY && session.facultyType === 'SENIOR')) {
+            const isDeptMatch = session.department_id && facultyGroup.department_id && session.department_id === facultyGroup.department_id.toString();
+            if (!isDeptMatch) return NextResponse.json({ error: "Cannot generate plans for groups outside of your department" }, { status: 403 });
         }
 
         if (!facultyGroup.termStartDate || !facultyGroup.termEndDate) {

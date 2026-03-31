@@ -359,7 +359,9 @@ export default function SubjectRegistry() {
                                                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
                                                         <Layers className="w-4 h-4 text-slate-400" />
                                                     </div>
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sem {sub.semester || 'N/A'}</span>
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                        {(sub.semester !== undefined && sub.semester !== null && sub.semester !== '') ? `Sem ${sub.semester}` : 'Sem N/A'}
+                                                    </span>
                                                 </div>
 
                                                 {sub.syllabus ? (

@@ -5,11 +5,19 @@ import Subject from '@/models/Subject';
 import FacultyGroup from '@/models/FacultyGroup';
 import Plan from '@/models/Plan';
 import Department from '@/models/Department';
+import { verifyJWT } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     try {
+        // Only PRINCIPAL and ADMIN can access institution-wide analytics
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session || (session.role !== 'PRINCIPAL' && session.role !== 'ADMIN')) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+
         await dbConnect();
 
         // Import models for population side effects

@@ -1,17 +1,17 @@
 import nodemailer from 'nodemailer';
 
 function getTransporter() {
-    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.SMTP_PORT || '587');
-    const user = process.env.SMTP_USER || '';
-    const pass = process.env.SMTP_PASS || '';
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || '587');
+  const user = process.env.SMTP_USER || '';
+  const pass = process.env.SMTP_PASS || '';
 
-    return nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass },
-    });
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
 }
 
 const FROM = process.env.SMTP_FROM || '"UAPS System" <noreply@uaps.edu>';
@@ -19,18 +19,18 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 /** Send invite email to a new faculty/HOD with temp credentials */
 export async function sendInviteEmail(opts: {
-    to: string;
-    name: string;
-    tempPassword: string;
-    role: string;
+  to: string;
+  name: string;
+  tempPassword: string;
+  role: string;
 }) {
-    const transporter = getTransporter();
-    const loginUrl = `${BASE_URL}/login`;
-    await transporter.sendMail({
-        from: FROM,
-        to: opts.to,
-        subject: 'You have been invited to UAPS',
-        html: `
+  const transporter = getTransporter();
+  const loginUrl = `${BASE_URL}/login`;
+  await transporter.sendMail({
+    from: FROM,
+    to: opts.to,
+    subject: 'You have been invited to UAPS',
+    html: `
 <div style="font-family:sans-serif;max-width:560px;margin:auto">
   <h2 style="color:#2563eb">Welcome to UAPS, ${opts.name}!</h2>
   <p>You have been added as <strong>${opts.role}</strong> on the University Academic Planning System.</p>
@@ -44,22 +44,22 @@ export async function sendInviteEmail(opts: {
   </p>
   <p style="color:#94a3b8;font-size:12px;margin-top:24px">You will be required to change your password on first login. Do not share this email.</p>
 </div>`,
-    });
+  });
 }
 
 /** Send password reset OTP email */
 export async function sendPasswordResetEmail(opts: {
-    to: string;
-    name: string;
-    otp: string;
+  to: string;
+  name: string;
+  otp: string;
 }) {
-    const transporter = getTransporter();
-    const resetUrl = `${BASE_URL}/reset-password?email=${encodeURIComponent(opts.to)}`;
-    await transporter.sendMail({
-        from: FROM,
-        to: opts.to,
-        subject: 'UAPS – Password Reset Code',
-        html: `
+  const transporter = getTransporter();
+  const resetUrl = `${BASE_URL}/reset-password?email=${encodeURIComponent(opts.to)}`;
+  await transporter.sendMail({
+    from: FROM,
+    to: opts.to,
+    subject: 'UAPS – Password Reset Code',
+    html: `
 <div style="font-family:sans-serif;max-width:560px;margin:auto">
   <h2 style="color:#2563eb">Password Reset Request</h2>
   <p>Hi ${opts.name},</p>
@@ -72,5 +72,5 @@ export async function sendPasswordResetEmail(opts: {
   </p>
   <p style="color:#94a3b8;font-size:12px;margin-top:24px">If you did not request this, ignore this email. Your password will not change.</p>
 </div>`,
-    });
+  });
 }

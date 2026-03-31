@@ -26,7 +26,7 @@ export default function NewFacultyGroupPage() {
                     </Link>
                 </div>
 
-                <div className="max-w-4xl mx-auto">
+                <div className="w-full">
                     <CreateFacultyGroupForm />
                 </div>
             </div>

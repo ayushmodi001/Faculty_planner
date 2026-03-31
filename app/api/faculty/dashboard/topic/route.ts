@@ -6,10 +6,19 @@ import AcademicCalendar from '@/models/AcademicCalendar';
 import CalendarEvent from '@/models/CalendarEvent';
 import { calculateAvailableSlots } from '@/utils/availability';
 import { INDIAN_HOLIDAYS_2026 } from '@/data/indian_holidays';
+import { verifyJWT } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
     try {
-        await dbConnect();        const { planId, topicId, status, missed_reason, missed_reason_custom, marked_at } = await req.json();
+        // ── Auth check ────────────────────────────────────────────────────────
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        await dbConnect();
+        const { planId, topicId, status, missed_reason, missed_reason_custom, marked_at } = await req.json();
 
         if (!planId || !topicId || !status) {
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -17,6 +26,19 @@ export async function POST(req: NextRequest) {
 
         const plan = await Plan.findById(planId) as IPlan;
         if (!plan) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+
+        // ── Ownership verification: caller must belong to this plan's group ──
+        const group = await FacultyGroup.findById(plan.faculty_group_id).lean();
+        if (!group) return NextResponse.json({ error: 'Faculty group not found' }, { status: 404 });
+
+        const isMember = (group.faculty_ids || []).map((id: any) => id.toString()).includes(session.sub as string);
+        const isHODInDept = (session.role === 'HOD') && session.department_id && group.department_id?.toString() === session.department_id;
+        const isPrincipalOrAdmin = session.role === 'PRINCIPAL' || session.role === 'ADMIN';
+
+        if (!isMember && !isHODInDept && !isPrincipalOrAdmin) {
+            return NextResponse.json({ error: 'You are not a member of this faculty group' }, { status: 403 });
+        }
+
 
         const topicIndex = plan.syllabus_topics.findIndex((t: any) => t._id?.toString() === topicId);
         if (topicIndex === -1) return NextResponse.json({ error: 'Topic not found in plan' }, { status: 404 });

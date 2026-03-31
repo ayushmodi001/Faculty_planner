@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import FacultyGroup from '@/models/FacultyGroup';
 import { revalidatePath } from 'next/cache';
+import { verifyJWT } from '@/lib/auth';
+import { UserRole } from '@/models/User';
+
+const EDIT_ROLES = [UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.HOD];
 
 export async function GET(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');        if (id) {
@@ -14,6 +22,13 @@ export async function GET(req: NextRequest) {
                 .populate('subjectAssignments.faculty_id', 'name email')
                 .lean();
             if (!group) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+            // HOD: enforce department scope
+            if (session.role === UserRole.HOD && session.department_id) {
+                if (group.department_id?.toString() !== session.department_id) {
+                    return NextResponse.json({ error: 'Access denied to this group' }, { status: 403 });
+                }
+            }
             // Flatten for UI consumption — subjects derived from subjectAssignments
             const seenSubjects = new Map<string, any>();
             (group.subjectAssignments as any[])?.forEach((a: any) => {
@@ -44,13 +59,27 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session || !EDIT_ROLES.includes(session.role as UserRole)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
         const body = await req.json();
         console.log('PUT /api/admin/faculty/groups Body:', body);
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });        const UserModel = (await import('@/models/User')).default;
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        // HOD can only edit groups in their own dept
+        if (session.role === UserRole.HOD && session.department_id) {
+            const existingGroup = await FacultyGroup.findById(id).lean();
+            if (existingGroup && existingGroup.department_id?.toString() !== session.department_id) {
+                return NextResponse.json({ error: 'Cannot edit group outside your department' }, { status: 403 });
+            }
+            body.department_id = session.department_id; // Force dept
+        }        const UserModel = (await import('@/models/User')).default;
 
         const updateData: Record<string, any> = {};
 
@@ -103,6 +132,11 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
     try {
+        const cookie = req.cookies.get('session')?.value;
+        const session = cookie ? await verifyJWT(cookie) : null;
+        if (!session || !EDIT_ROLES.includes(session.role as UserRole)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
         await dbConnect();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');

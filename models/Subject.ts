@@ -11,6 +11,8 @@ export interface ISubject extends Document {
      */
     faculty_ids?: mongoose.Types.ObjectId[];  // → User (FACULTY)
     syllabus?: string;
+    year?: number;
+    semester?: number;
 }
 
 const SubjectSchema = new Schema<ISubject>(
@@ -20,6 +22,8 @@ const SubjectSchema = new Schema<ISubject>(
         department_id: { type: Schema.Types.ObjectId, ref: 'Department' },
         faculty_ids:   [{ type: Schema.Types.ObjectId, ref: 'User' }],
         syllabus:      { type: String },
+        year:          { type: Number },
+        semester:      { type: Number },
     },
     { timestamps: true }
 );

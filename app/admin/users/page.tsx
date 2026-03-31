@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
     Loader2, Upload, Search, Mail, Trash2, Edit3, ChevronRight,
-    UserCircle2, Users, RefreshCw, Send, Hash, ShieldAlert, CheckCircle2
+    UserCircle2, Users, RefreshCw, Send, Hash, ShieldAlert, Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -22,7 +22,24 @@ const EMPTY_INVITE = {
     enrollmentNumber: '', employeeId: '',
 };
 
+/** Roles that a viewer is allowed to create / assign */
+function getAllowedRolesToCreate(viewerRole: string) {
+    if (viewerRole === 'PRINCIPAL') return ['FACULTY', 'STUDENT', 'HOD', 'PRINCIPAL'];
+    if (viewerRole === 'HOD') return ['FACULTY', 'STUDENT'];
+    return ['FACULTY', 'STUDENT'];
+}
+
+/** Can the viewer edit/delete this target user? */
+function canMutate(viewerRole: string, targetRole: string, viewerSub: string, targetId: string): boolean {
+    if (viewerSub === targetId) return false; // never self-delete
+    if (targetRole === 'PRINCIPAL') return viewerRole === 'PRINCIPAL'; // only principal edits principal
+    if (targetRole === 'HOD') return viewerRole === 'PRINCIPAL'; // only principal edits HOD
+    // HOD can manage FACULTY and STUDENT in their dept (API enforces dept scope)
+    return true;
+}
+
 export default function UserManagementPage() {
+    const [viewer, setViewer] = useState<{ role: string; sub: string; department?: string; department_id?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [users, setUsers] = useState<any[]>([]);
     const [isEditing, setIsEditing] = useState(false);
@@ -31,10 +48,25 @@ export default function UserManagementPage() {
     const [bulkData, setBulkData] = useState<any[]>([]);
     const [fileName, setFileName] = useState('');
     const [departments, setDepartments] = useState<any[]>([]);
-    // Track which userId has a pending reset request
     const [resettingId, setResettingId] = useState<string | null>(null);
 
-    useEffect(() => { fetchUsers(); fetchDepartments(); }, []);
+    useEffect(() => {
+        // Fetch session first, then load data
+        fetch('/api/user/me')
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    setViewer({ role: d.user.role, sub: d.user.sub, department: d.user.department, department_id: d.user.department_id });
+                    // Pre-fill dept for HOD — they can only invite to their own dept
+                    if (d.user.role === 'HOD' && d.user.department) {
+                        setInviteData(prev => ({ ...prev, department: d.user.department }));
+                    }
+                }
+            })
+            .catch(() => { });
+        fetchUsers();
+        fetchDepartments();
+    }, []);
 
     const fetchDepartments = async () => {
         try {
@@ -80,7 +112,9 @@ export default function UserManagementPage() {
                 toast.success(isEditing ? 'User updated' : `Invite sent to ${inviteData.email}`);
             }
 
-            setInviteData({ ...EMPTY_INVITE });
+            // Reset form — but keep HOD dept locked
+            const deptReset = viewer?.role === 'HOD' ? viewer.department || '' : '';
+            setInviteData({ ...EMPTY_INVITE, department: deptReset });
             setIsEditing(false);
             fetchUsers();
         } catch (err: any) {
@@ -160,7 +194,6 @@ export default function UserManagementPage() {
         if (bulkData.length === 0) return;
         setIsLoading(true);
         try {
-            // Bulk uses the old direct-create endpoint (no email for bulk)
             const formatted = bulkData.map((row: any) => ({
                 name: row.Name || row.name,
                 email: row.Email || row.email,
@@ -200,18 +233,36 @@ export default function UserManagementPage() {
         );
 
     const roleBadge = (role: string) => {
-        const map: Record<string, string> = { FACULTY: 'bg-blue-50 text-blue-700', STUDENT: 'bg-green-50 text-green-700', HOD: 'bg-purple-50 text-purple-700', PRINCIPAL: 'bg-orange-50 text-orange-700', ADMIN: 'bg-red-50 text-red-700' };
+        const map: Record<string, string> = {
+            FACULTY: 'bg-blue-50 text-blue-700',
+            STUDENT: 'bg-green-50 text-green-700',
+            HOD: 'bg-purple-50 text-purple-700',
+            PRINCIPAL: 'bg-orange-50 text-orange-700',
+            ADMIN: 'bg-red-50 text-red-700',
+        };
         return map[role] || 'bg-slate-50 text-slate-600';
     };
 
+    const allowedCreatableRoles = getAllowedRolesToCreate(viewer?.role ?? '');
+
     return (
-        <DashboardLayout role="Admin">
+        <DashboardLayout role={viewer?.role === 'PRINCIPAL' ? 'Principal' : 'Admin'} departmentName={viewer?.department}>
             <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-black text-foreground tracking-tight">User Management</h1>
-                        <p className="text-muted-foreground text-sm mt-1">Invite faculty & students. Manage existing accounts.</p>
+                        <p className="text-muted-foreground text-sm mt-1">
+                            {viewer?.role === 'HOD'
+                                ? `Managing users in ${viewer.department ?? 'your department'}`
+                                : 'Invite faculty & students. Manage existing accounts.'}
+                        </p>
                     </div>
+                    {viewer?.role === 'HOD' && viewer.department && (
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20">
+                            <ShieldAlert className="w-4 h-4 text-primary" />
+                            <span className="text-xs font-black text-primary uppercase tracking-wider">{viewer.department} dept</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -233,7 +284,7 @@ export default function UserManagementPage() {
                                         <h3 className="font-black text-foreground uppercase tracking-tight text-[10px]">{isEditing ? 'Update Account' : 'Send User Invite'}</h3>
                                     </div>
                                     {!isEditing && (
-                                        <p className="text-[10px] text-muted-foreground bg-blue-50 border border-blue-100 rounded-xl p-3">
+                                        <p className="text-[10px] text-muted-foreground bg-primary/5 border border-primary/10 rounded-xl p-3">
                                             An email with a temporary password will be sent. The user must change it on first login.
                                         </p>
                                     )}
@@ -252,24 +303,31 @@ export default function UserManagementPage() {
                                                 <Select value={inviteData.role} onValueChange={val => setInviteData({ ...inviteData, role: val })}>
                                                     <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="FACULTY">Faculty</SelectItem>
-                                                        <SelectItem value="STUDENT">Student</SelectItem>
-                                                        <SelectItem value="HOD">HOD</SelectItem>
+                                                        {allowedCreatableRoles.map(r => (
+                                                            <SelectItem key={r} value={r}>{r.charAt(0) + r.slice(1).toLowerCase()}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Department</label>
-                                                <Select value={inviteData.department} onValueChange={val => setInviteData({ ...inviteData, department: val })}>
-                                                    <SelectTrigger className="text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {departments.map((d: any) => <SelectItem key={d._id} value={d.name}>{d.name}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
+                                                {/* HOD: locked to their own department */}
+                                                {viewer?.role === 'HOD' ? (
+                                                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/30">
+                                                        <Lock className="w-3 h-3 text-muted-foreground/40" />
+                                                        <span className="text-sm font-black text-foreground/70 truncate">{viewer.department}</span>
+                                                    </div>
+                                                ) : (
+                                                    <Select value={inviteData.department} onValueChange={val => setInviteData({ ...inviteData, department: val })}>
+                                                        <SelectTrigger className="text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {departments.map((d: any) => <SelectItem key={d._id} value={d.name}>{d.name}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
                                             </div>
                                         </div>
 
-                                        {/* ID Number fields */}
                                         {inviteData.role === 'STUDENT' && (
                                             <div className="space-y-1.5 animate-in slide-in-from-top-2">
                                                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1"><Hash className="w-3 h-3" /> Enrollment Number</label>
@@ -302,7 +360,11 @@ export default function UserManagementPage() {
                                                 {isEditing ? 'Update User' : 'Send Invite Email'}
                                             </Button>
                                             {isEditing && (
-                                                <Button type="button" variant="ghost" className="text-xs font-black text-muted-foreground" onClick={() => { setIsEditing(false); setInviteData({ ...EMPTY_INVITE }); }}>
+                                                <Button type="button" variant="ghost" className="text-xs font-black text-muted-foreground" onClick={() => {
+                                                    setIsEditing(false);
+                                                    const deptReset = viewer?.role === 'HOD' ? viewer.department || '' : '';
+                                                    setInviteData({ ...EMPTY_INVITE, department: deptReset });
+                                                }}>
                                                     Cancel
                                                 </Button>
                                             )}
@@ -314,19 +376,19 @@ export default function UserManagementPage() {
                                 <TabsContent value="bulk" className="p-5 space-y-3 mt-0">
                                     <h3 className="font-bold uppercase tracking-tight text-sm">Bulk Import (Excel/CSV)</h3>
                                     <p className="text-[10px] text-muted-foreground">Columns: Name, Email, Password, Role, Department, Mobile, Type, Class, EnrollmentNumber, EmployeeId</p>
-                                    <div className="border border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center bg-slate-50/50 relative group hover:bg-slate-50 transition-colors">
-                                        <Upload className="h-8 w-8 text-slate-300 mb-3 group-hover:text-blue-500 transition-colors" />
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">{fileName || 'Select Excel or CSV file'}</p>
+                                    <div className="border border-dashed border-border rounded-xl p-6 flex flex-col items-center bg-muted/10 relative group hover:bg-muted/20 transition-colors">
+                                        <Upload className="h-8 w-8 text-muted-foreground/30 mb-3 group-hover:text-primary transition-colors" />
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-4">{fileName || 'Select Excel or CSV file'}</p>
                                         <Input type="file" accept=".xlsx,.xls,.csv" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} />
                                         <Button variant="outline" className="text-[10px] font-bold uppercase pointer-events-none">Choose File</Button>
                                     </div>
                                     {bulkData.length > 0 && (
-                                        <div className="bg-slate-900 p-4 rounded-xl flex justify-between items-center text-white">
+                                        <div className="bg-secondary p-4 rounded-xl flex justify-between items-center text-secondary-foreground">
                                             <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Ready</p>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Ready</p>
                                                 <p className="text-xl font-bold">{bulkData.length} Users</p>
                                             </div>
-                                            <Button size="icon" className="h-10 w-10 bg-blue-600 hover:bg-blue-700" onClick={handleBulkSubmit} disabled={isLoading}>
+                                            <Button size="icon" className="h-10 w-10" onClick={handleBulkSubmit} disabled={isLoading}>
                                                 <ChevronRight className="w-5 h-5" />
                                             </Button>
                                         </div>
@@ -364,44 +426,59 @@ export default function UserManagementPage() {
                                 <div className="divide-y divide-border/40">
                                     {filteredUsers.length === 0 ? (
                                         <div className="py-20 text-center space-y-2">
-                                            <UserCircle2 className="w-10 h-10 text-slate-200 mx-auto" />
-                                            <p className="text-sm font-medium text-slate-400">No users found.</p>
+                                            <UserCircle2 className="w-10 h-10 text-muted-foreground/20 mx-auto" />
+                                            <p className="text-sm font-medium text-muted-foreground">No users found.</p>
                                         </div>
-                                    ) : filteredUsers.map((user) => (
-                                        <div key={user._id} className="px-6 py-3.5 flex items-center justify-between hover:bg-muted/30 transition-all group">
-                                            <div className="flex items-center gap-4 overflow-hidden min-w-0">
-                                                <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center font-black shrink-0 text-sm transition-all duration-300",
-                                                    user.isInvitePending ? 'bg-amber-100 text-amber-600' : 'bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground')}>
-                                                    {user.isInvitePending ? <Mail className="w-4 h-4" /> : user.name.charAt(0)}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 mb-0.5">
-                                                        <p className="font-bold text-foreground text-sm truncate leading-none group-hover:text-primary transition-colors">{user.name}</p>
-                                                        {user.isInvitePending && <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full shrink-0">Pending</span>}
-                                                        {user.mustChangePassword && <span className="text-[8px] font-black uppercase bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full shrink-0">Must Reset</span>}
+                                    ) : filteredUsers.map((user) => {
+                                        const mutable = viewer ? canMutate(viewer.role, user.role, viewer.sub, user._id) : false;
+                                        return (
+                                            <div key={user._id} className="px-6 py-3.5 flex items-center justify-between hover:bg-muted/30 transition-all group">
+                                                <div className="flex items-center gap-4 overflow-hidden min-w-0">
+                                                    <div className={cn(
+                                                        "w-10 h-10 rounded-2xl flex items-center justify-center font-black shrink-0 text-sm transition-all duration-300",
+                                                        user.isInvitePending ? 'bg-amber-100 text-amber-600' : 'bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground'
+                                                    )}>
+                                                        {user.isInvitePending ? <Mail className="w-4 h-4" /> : user.name.charAt(0)}
                                                     </div>
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
-                                                        <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", roleBadge(user.role))}>{user.role}</span>
-                                                        {user.enrollmentNumber && <span className="text-[9px] font-mono text-slate-400">#{user.enrollmentNumber}</span>}
-                                                        {user.employeeId && <span className="text-[9px] font-mono text-slate-400">#{user.employeeId}</span>}
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                            <p className="font-bold text-foreground text-sm truncate leading-none group-hover:text-primary transition-colors">{user.name}</p>
+                                                            {user.isInvitePending && <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full shrink-0">Pending</span>}
+                                                            {user.mustChangePassword && <span className="text-[8px] font-black uppercase bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full shrink-0">Must Reset</span>}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                                                            <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", roleBadge(user.role))}>{user.role}</span>
+                                                            {user.department && <span className="text-[9px] text-muted-foreground/70 font-medium">{user.department}</span>}
+                                                            {user.enrollmentNumber && <span className="text-[9px] font-mono text-muted-foreground/60">#{user.enrollmentNumber}</span>}
+                                                            {user.employeeId && <span className="text-[9px] font-mono text-muted-foreground/60">#{user.employeeId}</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
+
+                                                {/* Action buttons — only shown if the viewer can mutate this user */}
+                                                {mutable ? (
+                                                    <div className="flex items-center gap-1 shrink-0 ml-4 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-600" title="Send Password Reset Email"
+                                                            onClick={() => handleSendReset(user._id, user.name)} disabled={resettingId === user._id}>
+                                                            {resettingId === user._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEditUser(user)}>
+                                                            <Edit3 className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteUser(user._id)}>
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    /* Show lock icon for protected accounts (Principal, HOD when viewer is HOD) */
+                                                    <div className="flex items-center ml-4 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <Lock className="w-3.5 h-3.5 text-muted-foreground/30" />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex items-center gap-1 shrink-0 ml-4 opacity-0 group-hover:opacity-100 transition-all">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-600" title="Send Password Reset Email"
-                                                    onClick={() => handleSendReset(user._id, user.name)} disabled={resettingId === user._id}>
-                                                    {resettingId === user._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEditUser(user)}>
-                                                    <Edit3 className="w-4 h-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteUser(user._id)}>
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </CardContent>
                         </Card>

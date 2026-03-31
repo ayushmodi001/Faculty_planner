@@ -30,30 +30,29 @@ export default async function GlobalSettingsPage() {
             </div>
 
             <div className="max-w-4xl mx-auto space-y-8">
-                <ChangePasswordForm />                {/* HOD / Principal Specific Settings */}
-                {(role === 'HOD' || role === 'PRINCIPAL') && (
-                    <div className="space-y-8">
-                        <div>
-                            <h3 className="text-xl font-bold mb-4 border-b pb-2">College Administrative Settings</h3>
-                            <CollegeSettingsForm />
-                        </div>
+                <ChangePasswordForm />                {/* Principal/Admin Only: College Settings */}
+                {(role === 'PRINCIPAL' || role === 'ADMIN') && (
+                    <div>
+                        <h3 className="text-xl font-bold mb-4 border-b pb-2">College Administrative Settings</h3>
+                        <CollegeSettingsForm />
+                    </div>
+                )}
 
-                        {role === 'HOD' && (
+                {/* HOD: Academic Calendar access only */}
+                {role === 'HOD' && (
+                    <div>
+                        <h3 className="text-xl font-bold mb-4 border-b pb-2">Academic Planning</h3>
+                        <div className="p-6 border rounded-lg bg-card text-card-foreground shadow-sm flex items-center justify-between">
                             <div>
-                                <h3 className="text-xl font-bold mb-4 border-b pb-2">Academic Planning</h3>
-                                <div className="p-6 border rounded-lg bg-card text-card-foreground shadow-sm flex items-center justify-between">
-                                    <div>
-                                        <h4 className="font-semibold text-lg">Academic Calendar</h4>
-                                        <p className="text-sm text-muted-foreground">Manage holidays, exams, and important academic dates visually.</p>
-                                    </div>
-                                    <Link href="/admin/calendar">
-                                        <Button className="gap-2">
-                                            <CalendarRange className="w-4 h-4" /> Open Calendar Config
-                                        </Button>
-                                    </Link>
-                                </div>
+                                <h4 className="font-semibold text-lg">Academic Calendar</h4>
+                                <p className="text-sm text-muted-foreground">Manage exams and important academic dates for your department.</p>
                             </div>
-                        )}
+                            <Link href="/admin/calendar">
+                                <Button className="gap-2">
+                                    <CalendarRange className="w-4 h-4" /> Open Calendar
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 )}
             </div>

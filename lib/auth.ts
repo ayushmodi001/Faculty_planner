@@ -50,6 +50,10 @@ export async function login(user: any) {
         role: user.role,
         name: user.name,
         mustChangePassword: user.mustChangePassword ?? false,
+        department_id: user.department_id?.toString() ?? null,
+        facultyGroupId: user.facultyGroupId?.toString() ?? null,
+        facultyGroupIds: user.facultyGroupIds?.map((id: any) => id.toString()) ?? [],
+        facultyType: user.facultyType ?? null,
     });
 
     // Set HTTP-only cookie

@@ -4,6 +4,9 @@ import dbConnect from '@/lib/db';
 import FacultyGroup, { IFacultyGroup } from '@/models/FacultyGroup';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
+import Department from '@/models/Department';
 
 // Input validation schema for creating a faculty group
 const SubjectAssignmentSchema = z.object({
@@ -13,6 +16,8 @@ const SubjectAssignmentSchema = z.object({
 
 const CreateFacultyGroupSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters"),
+    department_id: z.string().optional(),         // ObjectId string
+    department: z.string().optional(),            // name-based fallback
     subjects: z.array(z.string()).min(1, "At least one subject is required"),
     members: z.array(z.string()).optional(),
     students: z.array(z.string()).optional(),
@@ -20,6 +25,8 @@ const CreateFacultyGroupSchema = z.object({
     year: z.number().int().min(1).max(4).default(1),
     semester: z.number().int().min(1).max(8).default(1),
     section: z.string().optional(),
+    termStartDate: z.string().optional(),
+    termEndDate: z.string().optional(),
     timetable: z.record(
         z.string(),
         z.array(z.object({
@@ -50,7 +57,23 @@ export async function createFacultyGroup(data: CreateFacultyGroupInput) {
         const existing = await FacultyGroup.findOne({ name: validatedData.name });
         if (existing) {
             return { success: false, error: 'Faculty Group with this name already exists' };
-        }        const SubjectModel = (await import('@/models/Subject')).default;
+        }        // ── Resolve department_id ──────────────────────────────────────────────
+        const cookieStore = await cookies();
+        const token = cookieStore.get('session')?.value;
+        const session = token ? await verifyJWT(token) : null;
+
+        let computedDeptId: string | undefined;
+        if (session?.role === 'HOD' && session.department_id) {
+            // HOD: always use their own department
+            computedDeptId = session.department_id as string;
+        } else if (validatedData.department_id) {
+            computedDeptId = validatedData.department_id;
+        } else if (validatedData.department) {
+            const dept = await Department.findOne({ name: validatedData.department });
+            if (dept) computedDeptId = dept._id.toString();
+        }
+
+        const SubjectModel = (await import('@/models/Subject')).default;
         const UserModel = (await import('@/models/User')).default;
 
         // Resolve subject names to ObjectIds (for subjectAssignments)
@@ -70,13 +93,16 @@ export async function createFacultyGroup(data: CreateFacultyGroupInput) {
             .filter(a => a.faculty_id);
         const subjectAssignments = [...providedAssignments, ...autoAssignments];
 
-        const facultyData = {
+        const facultyData: any = {
             name: validatedData.name,
+            department_id: computedDeptId,
             faculty_ids,
             subjectAssignments,
             year: validatedData.year ?? 1,
             semester: validatedData.semester ?? 1,
             section: validatedData.section?.toUpperCase() || undefined,
+            termStartDate: validatedData.termStartDate ? new Date(validatedData.termStartDate) : undefined,
+            termEndDate: validatedData.termEndDate ? new Date(validatedData.termEndDate) : undefined,
             timetable: validatedData.timetable
                 ? new Map(Object.entries(validatedData.timetable))
                 : undefined
@@ -115,20 +141,42 @@ export async function getAllFacultyGroups() {
 
         // Ensure models are registered for population
         await import('@/models/Subject');
-        await import('@/models/User');        const groups = await FacultyGroup.find({})
+        await import('@/models/User');
+
+        // HOD can only see groups from their own department
+        const cookieStore = await cookies();
+        const token = cookieStore.get('session')?.value;
+        const session = token ? await verifyJWT(token) : null;
+
+        const filter: any = {};
+        if (session?.role === 'HOD' && session.department_id) {
+            filter.department_id = session.department_id;
+        }
+
+        const groups = await FacultyGroup.find(filter)
+            .populate('department_id', 'name code')
             .populate('faculty_ids', 'name')
-            .populate('subjectAssignments.subject_id', 'name')
-            .sort({ createdAt: -1 })
+            .populate('subjectAssignments.subject_id', 'name syllabus')
+            .populate('subjectAssignments.faculty_id', 'name')
+            .sort({ year: 1, semester: 1, name: 1 })
             .lean();
 
         // Derive unique subjects from subjectAssignments (single source of truth)
         const mappedGroups = groups.map((g: any) => {
-            const subjectNames = [...new Set<string>(
-                (g.subjectAssignments || []).map((a: any) => a.subject_id?.name).filter(Boolean)
-            )];
+            const subjectDataMap = new Map();
+            (g.subjectAssignments || []).forEach((a: any) => {
+                if (a.subject_id?.name) {
+                    subjectDataMap.set(a.subject_id.name, {
+                        name: a.subject_id.name,
+                        syllabus: a.subject_id.syllabus
+                    });
+                }
+            });
+            const subjects = Array.from(subjectDataMap.values());
+
             return {
                 ...g,
-                subjects: subjectNames,
+                subjects,
                 members: g.faculty_ids?.map((f: any) => f.name) || [],
                 year: g.year || 1,
                 semester: g.semester || 1,
@@ -193,6 +241,7 @@ export async function getFacultyGroupsByFaculty(facultyId: string) {
         await import('@/models/Subject');        const groups = await FacultyGroup.find({ faculty_ids: facultyId })
             .populate('faculty_ids', 'name')
             .populate('subjectAssignments.subject_id', 'name')
+            .populate('subjectAssignments.faculty_id', 'name')
             .sort({ createdAt: -1 })
             .lean();
 
