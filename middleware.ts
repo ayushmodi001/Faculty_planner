@@ -4,79 +4,95 @@ import { jwtVerify } from 'jose';
 const SECRET_KEY = process.env.JWT_SECRET_KEY || 'uaps-dev-fallback-key-v1';
 const key = new TextEncoder().encode(SECRET_KEY);
 
+const publicRoutes = ['/login', '/', '/reset-password'];
+const publicApiRoutes = ['/api/auth/login', '/api/auth/request-reset', '/api/auth/verify-reset'];
+const passwordGatedRoutes = ['/force-change-password'];
+
 /**
- * Validates the session JWT and checks for role-based access.
+ * Enterprise Middleware: Handles Auth, RBAC, and Security States.
  */
-export async function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
+export default async function middleware(req: NextRequest) {
+    const path = req.nextUrl.pathname;
 
-    // 1. Identify Protected and Auth Routes
-    const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/reset-password');
-    const isProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/dashboard');
+    // Helper to check public routes
+    const isPublicRoute = publicRoutes.includes(path) || publicApiRoutes.some(route => path.startsWith(route));
 
-    if (!isAuthRoute && !isProtectedRoute) return NextResponse.next();
-
-    // 2. Get session cookie
-    const token = request.cookies.get('session')?.value;
-
-    let payload: any = null;
-    if (token) {
+    // 1. Get and Verify Session
+    const cookie = req.cookies.get('session')?.value;
+    let session: any = null;
+    
+    if (cookie) {
         try {
-            const result = await jwtVerify(token, key, {
+            const { payload } = await jwtVerify(cookie, key, {
                 algorithms: ['HS256'],
             });
-            payload = result.payload;
+            session = payload;
         } catch (error) {
-            // Invalid token
+            // Invalid or expired token
         }
     }
 
-    // ── Auth Route Protection: If logged in, don't allow /login ────────────────────────────────
-    if (isAuthRoute) {
-        if (payload) {
-            // Redirect based on role to their appropriate dashboard
-            let redirectUrl = new URL('/dashboard/student', request.url);
-            if (payload.role === 'ADMIN') redirectUrl = new URL('/admin', request.url);
-            else if (['PRINCIPAL', 'HOD', 'FACULTY'].includes(payload.role)) {
-                 redirectUrl = new URL(`/dashboard/${payload.role.toLowerCase()}`, request.url);
+    // Helper to get correct dashboard for a role
+    const getRoleDashboardUrl = (role: string) => {
+        if (role === 'ADMIN') return '/admin';
+        if (role === 'PRINCIPAL') return '/dashboard/principal';
+        if (role === 'HOD') return '/dashboard/hod';
+        if (role === 'FACULTY') return '/dashboard/faculty';
+        if (role === 'STUDENT') return '/dashboard/student';
+        return '/login';
+    };
+
+    // 2. Redirect logged-in users away from /login
+    if (path === '/login' && session) {
+        return NextResponse.redirect(new URL(getRoleDashboardUrl(session.role as string), req.nextUrl));
+    }
+
+    // 3. Strictly Protect All Other Routes
+    if (!isPublicRoute && !session) {
+        if (path.startsWith('/api/')) {
+            return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
+        }
+        const loginUrl = new URL('/login', req.nextUrl);
+        loginUrl.searchParams.set('from', path);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    // 4. Force Password Change Guard
+    if (session && session.mustChangePassword) {
+        const allowed = passwordGatedRoutes.some(r => path.startsWith(r)) || path === '/api/user/password';
+        if (!allowed) {
+            return NextResponse.redirect(new URL('/force-change-password', req.nextUrl));
+        }
+    }
+
+    // 5. Strict Role-Based Access Control (RBAC)
+    if (session) {
+        const role = session.role as string;
+        const handleUnauthorized = () => {
+            if (path.startsWith('/api/')) {
+                return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
             }
-            return NextResponse.redirect(redirectUrl);
-        }
-        return NextResponse.next();
-    }
+            return NextResponse.redirect(new URL(getRoleDashboardUrl(role), req.nextUrl));
+        };
 
-    // ── Protected Route Guard: If not logged in, redirect to login ──────────────────────────────
-    if (isProtectedRoute) {
-        if (!payload) {
-            const loginUrl = new URL('/login', request.url);
-            // Append current path for subsequent redirection after login
-            loginUrl.searchParams.set('from', pathname);
-            return NextResponse.redirect(loginUrl);
+        // Admin section: Only Principal, HOD, and Super Admin
+        if (path.startsWith('/admin') || path.startsWith('/api/admin')) {
+            if (!['PRINCIPAL', 'HOD', 'ADMIN'].includes(role)) {
+                return handleUnauthorized();
+            }
         }
 
-        // Optional: Role-based strict routing enforcement
-        if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
-            // Non-admins can only access /admin if allowed by their sub-role, 
-            // but usually we want to separate dashboard vs admin.
-            // For now, let's keep it simple or enforce strict separate contexts.
-        }
+        // Dashboard boundary checks - Force users into their lane
+        if (path.startsWith('/dashboard/principal') && role !== 'PRINCIPAL') return handleUnauthorized();
+        if (path.startsWith('/dashboard/hod') && role !== 'HOD') return handleUnauthorized();
+        if (path.startsWith('/dashboard/faculty') && role !== 'FACULTY') return handleUnauthorized();
+        if (path.startsWith('/dashboard/student') && role !== 'STUDENT') return handleUnauthorized();
     }
 
     return NextResponse.next();
 }
 
-/**
- * Configure matching paths for performance
- */
 export const config = {
-    matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         */
-        '/((?!api|_next/static|_next/image|favicon.ico).*)',
-    ],
+    // Optimized matcher to exclude static assets
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)'],
 };
