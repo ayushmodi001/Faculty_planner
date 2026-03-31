@@ -6,13 +6,11 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  node_version = "20"
-  included_files = ["models/**", "lib/**", "data/**"]
-  external_node_modules = ["mongoose", "jose", "bcryptjs"]
   # AI planner can take some time, let's suggest longer timeout if enabled (Netlify Max is 26s on Starter)
   timeout = 26
+  included_files = ["models/**", "lib/**", "data/**"]
+  external_node_modules = ["mongoose", "jose", "bcryptjs"]
 
 [env]
-  # Netlify specific build settings
   NODE_VERSION = "20"
   NEXT_USE_NETLIFY_EDGE = "true"
